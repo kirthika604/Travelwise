@@ -135,8 +135,15 @@ async def nearby_stops(place_id: int, radius_m: float = 1200, limit: int = 10):
             """
             SELECT s.stop_id, s.stop_name, s.lat, s.lon,
                    ST_Distance(s.location, p.location) AS distance_m,
-                   ARRAY_AGG(DISTINCT r.route_short_name) AS route_short_names,
-                   ARRAY_AGG(DISTINCT r.route_type) AS modes
+                   COALESCE(
+                       ARRAY_AGG(DISTINCT COALESCE(r.route_short_name, r.route_long_name))
+                           FILTER (WHERE COALESCE(r.route_short_name, r.route_long_name) IS NOT NULL),
+                       ARRAY[]::text[]
+                   ) AS route_short_names,
+                   COALESCE(
+                       ARRAY_AGG(DISTINCT r.route_type) FILTER (WHERE r.route_type IS NOT NULL),
+                       ARRAY[]::smallint[]
+                   ) AS modes
             FROM places p
             JOIN transit.stops s ON ST_DWithin(s.location, p.location, $2)
             JOIN transit.stop_times st ON st.stop_id = s.stop_id

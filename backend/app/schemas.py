@@ -35,8 +35,8 @@ class NearbyStop(BaseModel):
     lat: float
     lon: float
     distance_m: float
-    route_short_names: list[str]   # which lines serve this stop
-    modes: list[int]               # GTFS route_type values present at this stop
+    route_short_names: list[str] = []   # which lines serve this stop
+    modes: list[int] = []               # GTFS route_type values present at this stop
 
 
 class Departure(BaseModel):

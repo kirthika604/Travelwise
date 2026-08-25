@@ -29,6 +29,13 @@ class PlaceDetail(PlaceSummary):
     cuisines: list[str]
 
 
+class PlaceSearchPage(BaseModel):
+    items: list[PlaceSummary]
+    total: int                     # matches ignoring limit/offset
+    limit: int
+    offset: int
+
+
 class NearbyStop(BaseModel):
     stop_id: str
     stop_name: str

@@ -62,6 +62,9 @@ Then check `http://localhost:8000/docs` for interactive API docs (FastAPI auto-g
 
 ## Example queries
 
+`GET /places` returns a page envelope — `{"items": [...], "total": 214, "limit": 50, "offset": 0}`
+where `total` counts every match ignoring `limit`/`offset`.
+
 ```bash
 # free/low-budget places, best visited in the evening, near Marina Beach, within 3km
 curl "http://localhost:8000/places?budget_level=Low&best_time_of_day=Evening&near_lat=13.05907&near_lon=80.28511&radius_km=3"
@@ -102,8 +105,8 @@ curl "http://localhost:8000/transit/stops/CMRL_13/departures?after=09:00:00&serv
   empty — the source CSVs only have a coarse "best time of day", not actual
   open/close times, so true time-based availability filtering is
   approximate until that data is sourced.
-- Auth, rate limiting, pagination metadata (total counts), and tests —
-  none of that's in yet; this is a working core, not production-hardened.
+- Auth, rate limiting, and tests — none of that's in yet; this is a working
+  core, not production-hardened.
 
 ## Data notes / assumptions
 

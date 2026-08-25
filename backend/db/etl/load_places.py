@@ -5,6 +5,10 @@ Load _poi_chennai.csv and chennaiFood.csv into the `places` table
 Idempotent: re-running upserts by (source, name) and refreshes that
 place's tags/cuisines, so you can safely re-run after editing a CSV.
 
+Tolerant of the source data's gaps: blank or missing columns become NULL,
+and a row without a usable name or coordinates is skipped with a warning
+rather than aborting the whole load.
+
 Usage:
     python db/etl/load_places.py \
         --poi /path/to/_poi_chennai.csv \
@@ -20,18 +24,52 @@ import psycopg2.extras
 from parsers import parse_numeric_range, parse_time_needed, parse_best_time, split_multi
 
 
+def text(row, key):
+    """Stripped value for `key`, or None when blank/absent."""
+    return (row.get(key) or '').strip() or None
+
+
+def number(row, key):
+    """Float value for `key`, or None when blank/absent/unparseable."""
+    raw = text(row, key)
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+def coordinates(row, source, line_no):
+    lat, lon = number(row, 'Latitude'), number(row, 'Longitude')
+    if lat is None or lon is None:
+        print(f"skip {source} row {line_no} ({text(row, 'Place name') or text(row, 'Name')!r}): "
+              "missing or unparseable coordinates")
+        return None
+    return lat, lon
+
+
 def load_poi(conn, path):
     with open(path, encoding='utf-8') as f:
         rows = list(csv.DictReader(f))
 
     cur = conn.cursor()
     n = 0
-    for r in rows:
-        entry_min, entry_max = parse_numeric_range(r['Entry_Fee'])
-        avg_min, avg_max = parse_numeric_range(r['Avg_Expense'])
-        time_min, time_max = parse_time_needed(r['Time_Needed_hr'])
-        times_of_day, season = parse_best_time(r['Best_Time_to_Visit'])
-        vibes = split_multi(r['Category/Vibe'])
+    for line_no, r in enumerate(rows, start=2):   # 1 is the header
+        name = text(r, 'Place name')
+        if name is None:
+            print(f"skip poi row {line_no}: no name")
+            continue
+        coords = coordinates(r, 'poi', line_no)
+        if coords is None:
+            continue
+        lat, lon = coords
+
+        entry_min, entry_max = parse_numeric_range(text(r, 'Entry_Fee'))
+        avg_min, avg_max = parse_numeric_range(text(r, 'Avg_Expense'))
+        time_min, time_max = parse_time_needed(text(r, 'Time_Needed_hr'))
+        times_of_day, season = parse_best_time(text(r, 'Best_Time_to_Visit'))
+        vibes = split_multi(text(r, 'Category/Vibe'))
         # primary category = first vibe tag (there's no separate category column in this file)
         category = vibes[0] if vibes else 'Uncategorised'
 
@@ -68,11 +106,11 @@ def load_poi(conn, path):
                 updated_at = now()
             RETURNING id
         """, (
-            r['Place name'].strip(), r['Description'].strip(), category, r['Budget_Level'].strip() or None,
+            name, text(r, 'Description'), category, text(r, 'Budget_Level'),
             entry_min, entry_max, avg_min, avg_max,
-            time_min, time_max, r['Time_Needed_hr'].strip(),
-            times_of_day or None, season, r['Best_Time_to_Visit'].strip(),
-            float(r['Latitude']), float(r['Longitude']),
+            time_min, time_max, text(r, 'Time_Needed_hr'),
+            times_of_day or None, season, text(r, 'Best_Time_to_Visit'),
+            lat, lon,
         ))
         place_id = cur.fetchone()[0]
 
@@ -84,7 +122,7 @@ def load_poi(conn, path):
         )
         n += 1
     conn.commit()
-    print(f"POI: upserted {n} places from {path}")
+    print(f"POI: upserted {n} of {len(rows)} rows from {path}")
 
 
 def load_food(conn, path):
@@ -93,9 +131,18 @@ def load_food(conn, path):
 
     cur = conn.cursor()
     n = 0
-    for r in rows:
-        cuisines = split_multi(r['Cuisine'])
-        ambience = split_multi(r['Ambience'])
+    for line_no, r in enumerate(rows, start=2):
+        name = text(r, 'Name')
+        if name is None:
+            print(f"skip food row {line_no}: no name")
+            continue
+        coords = coordinates(r, 'food', line_no)
+        if coords is None:
+            continue
+        lat, lon = coords
+
+        cuisines = split_multi(text(r, 'Cuisine'))
+        ambience = split_multi(text(r, 'Ambience'))
 
         cur.execute("""
             INSERT INTO places (
@@ -114,9 +161,9 @@ def load_food(conn, path):
                 updated_at = now()
             RETURNING id
         """, (
-            r['Name'].strip(), r['Category'].strip(), r['Budget'].strip() or None,
-            float(r['Rating']) if r['Rating'].strip() else None,
-            float(r['Latitude']), float(r['Longitude']),
+            name, text(r, 'Category') or 'Uncategorised', text(r, 'Budget'),
+            number(r, 'Rating'),
+            lat, lon,
         ))
         place_id = cur.fetchone()[0]
 
@@ -134,7 +181,7 @@ def load_food(conn, path):
         )
         n += 1
     conn.commit()
-    print(f"Food: upserted {n} places from {path}")
+    print(f"Food: upserted {n} of {len(rows)} rows from {path}")
 
 
 def main():

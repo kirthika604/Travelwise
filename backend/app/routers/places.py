@@ -3,12 +3,12 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 
 from ..database import get_pool
-from ..schemas import PlaceDetail, PlaceSummary, NearbyStop
+from ..schemas import PlaceDetail, PlaceSearchPage, PlaceSummary, NearbyStop
 
 router = APIRouter(prefix="/places", tags=["places"])
 
 
-@router.get("", response_model=list[PlaceSummary])
+@router.get("", response_model=PlaceSearchPage)
 async def list_places(
     source: Optional[str] = Query(None, pattern="^(poi|food)$"),
     category: Optional[str] = None,
@@ -30,6 +30,9 @@ async def list_places(
     Search places by any combination of the user's stated constraints.
     If near_lat/near_lon are given, results are sorted by distance and
     distance_km is populated; otherwise sorted by name.
+
+    `total` counts every match, ignoring limit/offset, so a client can render
+    "showing 1-50 of 214" and know whether another page exists.
     """
     if (near_lat is None) != (near_lon is None):
         raise HTTPException(400, "near_lat and near_lon must be given together")
@@ -75,6 +78,9 @@ async def list_places(
         order_by = "distance_km"
 
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+    filter_args = list(args)
+    count_sql = f"SELECT COUNT(*) FROM places p {where_sql}"
+
     args.append(limit)
     limit_n = len(args)
     args.append(offset)
@@ -92,7 +98,13 @@ async def list_places(
     pool = get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(sql, *args)
-    return [dict(r) for r in rows]
+        total = await conn.fetchval(count_sql, *filter_args)
+    return {
+        "items": [dict(r) for r in rows],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @router.get("/{place_id}", response_model=PlaceDetail)

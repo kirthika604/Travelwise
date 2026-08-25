@@ -25,8 +25,15 @@ async def stops_nearby(
     sql = """
         SELECT s.stop_id, s.stop_name, s.lat, s.lon,
                ST_Distance(s.location, ST_SetSRID(ST_MakePoint($2,$1),4326)::geography) AS distance_m,
-               ARRAY_AGG(DISTINCT r.route_short_name) AS route_short_names,
-               ARRAY_AGG(DISTINCT r.route_type) AS modes
+               COALESCE(
+                   ARRAY_AGG(DISTINCT COALESCE(r.route_short_name, r.route_long_name))
+                       FILTER (WHERE COALESCE(r.route_short_name, r.route_long_name) IS NOT NULL),
+                   ARRAY[]::text[]
+               ) AS route_short_names,
+               COALESCE(
+                   ARRAY_AGG(DISTINCT r.route_type) FILTER (WHERE r.route_type IS NOT NULL),
+                   ARRAY[]::smallint[]
+               ) AS modes
         FROM transit.stops s
         JOIN transit.stop_times st ON st.stop_id = s.stop_id
         JOIN transit.trips t ON t.trip_id = st.trip_id
@@ -59,7 +66,8 @@ async def departures(
     origin place and destination place, plus transfer logic, to plan a
     full multi-modal journey — not yet implemented as a single endpoint).
     """
-    where = ["st.stop_id = $1", "st.departure_time >= $2::interval"]
+    # $2 is cast via text so asyncpg sends it as a string rather than a timedelta
+    where = ["st.stop_id = $1", "st.departure_time >= $2::text::interval"]
     args = [stop_id, after]
     if service_id:
         args.append(service_id)

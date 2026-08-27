@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-night-950 text-slate-100 antialiased;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Thin, unobtrusive scrollbars that match the theme */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-night-700 rounded-full;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@layer components {
+  /* Frosted glass surfaces used across every page */
+  .glass {
+    @apply bg-white/[0.04] backdrop-blur-xl border border-white/10;
+  }
+  .glass-strong {
+    @apply bg-night-900/70 backdrop-blur-2xl border border-white/10;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-medium
+           transition-all duration-200 focus:outline-none focus-visible:ring-2
+           focus-visible:ring-lagoon-400/60 disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn text-night-950 shadow-glow-lagoon bg-lagoon-gradient;
+  }
+  .btn-primary:hover {
+    @apply -translate-y-0.5 shadow-[0_14px_50px_-8px_rgba(20,184,166,0.6)];
+  }
+  .btn-ghost {
+    @apply btn glass text-slate-100 hover:bg-white/10;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm
+           transition-all duration-200 cursor-pointer select-none;
+  }
+  .chip-idle {
+    @apply chip border-white/[0.12] bg-white/[0.03] text-slate-300 hover:border-white/25 hover:text-white;
+  }
+  .chip-active {
+    @apply chip border-transparent text-night-950 font-semibold;
+    background-image: linear-gradient(120deg, #5eead4 0%, #2dd4bf 60%, #38bdf8 100%);
+  }
+
+  .card {
+    @apply glass rounded-3xl overflow-hidden;
+  }
+
+  /* Simple fade-up entrance used in place of a JS animation library */
+  .animate-in {
+    @apply animate-fade-up;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .snap-x-mandatory {
+    scroll-snap-type: x mandatory;
+  }
+  .snap-start {
+    scroll-snap-align: start;
+  }
+}
+
+/* MapLibre popup/control theming to match the dark UI */
+.maplibregl-popup-content {
+  background: rgba(10, 15, 30, 0.92) !important;
+  color: #e2e8f0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 14px !important;
+  backdrop-filter: blur(12px);
+  font-family: var(--font-sans), sans-serif !important;
+}
+.maplibregl-popup-tip {
+  border-top-color: rgba(10, 15, 30, 0.92) !important;
+  border-bottom-color: rgba(10, 15, 30, 0.92) !important;
+}
+.maplibregl-ctrl-group {
+  background: rgba(10, 15, 30, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

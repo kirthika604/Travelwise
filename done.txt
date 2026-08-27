@@ -1,0 +1,5 @@
+# travelwise
+##work done
+-got data sources
+-got the data sources into same formate.
+-downloaded postreSQL

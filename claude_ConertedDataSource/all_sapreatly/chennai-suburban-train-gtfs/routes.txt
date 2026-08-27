@@ -1,0 +1,5 @@
+route_id,agency_id,route_short_name,route_long_name,route_type
+TRAIN_MASAJJ,SR,MAS-AJJ,Chennai Central/Beach/MMC – Arakkonam (West Line) Suburban,2
+TRAIN_MASGPD,SR,MAS-GPD,Chennai – Gummidipoondi (North Line) Suburban,2
+TRAIN_MSBCGL,SR,MSB-CGL-CJ-TMLP,Chennai Beach – Chengalpattu – Kanchipuram – Tirumalpur (South-West Line) Suburban,2
+TRAIN_MRTS,SR,MRTS,Chennai Beach – Velachery MRTS,2

@@ -15,6 +15,7 @@ import SelectionTray from "@/components/discover/SelectionTray";
 import AddMemorySheet from "@/components/explorer/AddMemorySheet";
 import LevelUpModal from "@/components/explorer/LevelUpModal";
 import PassportLink from "@/components/ui/PassportLink";
+import LocationPicker from "@/components/ui/LocationPicker";
 import { discover, type Source } from "@/lib/api";
 import { useTrip, type Filters } from "@/lib/trip-store";
 import { useExplorer } from "@/lib/explorer-store";
@@ -41,7 +42,6 @@ function DiscoverPageInner() {
   const isIntro = searchParams.get("intro") === "1";
   const [showContent, setShowContent] = useState(!isIntro);
   const location = useTrip((s) => s.location);
-  const locationLabel = useTrip((s) => s.locationLabel);
   const filters = useTrip((s) => s.filters);
   const setFilters = useTrip((s) => s.setFilters);
   const toggleSelect = useTrip((s) => s.toggleSelect);
@@ -195,11 +195,10 @@ function DiscoverPageInner() {
             <h1 className="font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">
               {mode === "browse" ? "Explore around you" : "Your ranked matches"}
             </h1>
-            <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-400">
-              <MapPin size={14} className="text-lagoon-300" />
-              {locationLabel ?? "Chennai"} ·{" "}
-              {mode === "browse" ? "a few places nearby" : `${places.length} places, best match first`}
-            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-slate-400">
+              <LocationPicker />
+              <span>· {mode === "browse" ? "a few places nearby" : `${places.length} places, best match first`}</span>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">

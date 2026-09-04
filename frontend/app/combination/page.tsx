@@ -8,6 +8,7 @@ import Stepper from "@/components/ui/Stepper";
 import Loader from "@/components/ui/Loader";
 import DataSourceBadge from "@/components/ui/DataSourceBadge";
 import PassportLink from "@/components/ui/PassportLink";
+import LocationPicker from "@/components/ui/LocationPicker";
 import VibeIcon from "@/components/ui/VibeIcon";
 import TimeIcon from "@/components/ui/TimeIcon";
 import ItineraryCard from "@/components/combination/ItineraryCard";
@@ -214,6 +215,7 @@ export default function CombinationPage() {
           <p className="mt-1 text-sm text-slate-400">
             We sequence your picks into time-aware plans connected by public transit — and suggest nearby places (food included) that still fit your time, no pressure.
           </p>
+          <LocationPicker className="mt-2" />
         </div>
 
         {selected.length === 0 ? (

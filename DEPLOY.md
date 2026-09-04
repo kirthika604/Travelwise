@@ -47,9 +47,9 @@ for a demo link, not for anything you want to still work in two months.
 
 1. **New Project** from the repo. Vercel auto-detects Next.js — the only
    non-default setting is:
-   - **Root Directory**: `frontend 3`
+   - **Root Directory**: `frontend`
 2. **Environment variables** (Project Settings → Environment Variables),
-   same names as `frontend 3/.env.local.example`:
+   same names as `frontend/.env.local.example`:
    | Key | Value |
    |---|---|
    | `NEXT_PUBLIC_SUPABASE_URL` | from Supabase → Project Settings → API |

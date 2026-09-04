@@ -21,3 +21,5 @@ __pycache__/
 # Claude Code's own installed skill library / internal state — tooling, not project code
 .claude/skills/
 .claude/.cc-writes/
+.vercel
+.env*

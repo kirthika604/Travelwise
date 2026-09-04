@@ -17,6 +17,7 @@ import {
 import Stepper from "@/components/ui/Stepper";
 import Loader from "@/components/ui/Loader";
 import DataSourceBadge from "@/components/ui/DataSourceBadge";
+import PassportLink from "@/components/ui/PassportLink";
 import TransitTimeline from "@/components/routes/TransitTimeline";
 import RouteOptionCard from "@/components/routes/RouteOptionCard";
 import type { RouteSegment, RouteWaypoint } from "@/components/routes/RouteMap";
@@ -25,6 +26,7 @@ import { routeToUnified, itineraryToUnified, type UnifiedRoute } from "@/lib/rou
 import { useTrip } from "@/lib/trip-store";
 import { modeMeta, WALK_MODE } from "@/lib/constants";
 import { toLocalISO, formatDurationMin, formatMoney, formatTime, co2SavedKg, formatCo2, type LngLat } from "@/lib/geo";
+import { useRequireAuth } from "@/lib/use-require-auth";
 
 // maplibre-gl is browser-only → load the map without SSR.
 const RouteMap = dynamic(() => import("@/components/routes/RouteMap"), {
@@ -36,6 +38,7 @@ const valid = (c: LngLat) => Number.isFinite(c[0]) && Number.isFinite(c[1]) && !
 
 export default function RoutesPage() {
   const router = useRouter();
+  const { loading: authLoading } = useRequireAuth();
   const ctx = useTrip((s) => s.routeContext);
   const setLocation = useTrip((s) => s.setLocation);
   const savedLocation = useTrip((s) => s.location);
@@ -159,6 +162,7 @@ export default function RoutesPage() {
 
   const title = isItinerary ? "Your day route" : ctx?.mode === "single" ? ctx.destinationName : "Routes";
 
+  if (authLoading) return <div className="min-h-screen bg-night-950" />;
   if (!ctx) return <NoContext onBack={() => router.push("/discover")} />;
 
   return (
@@ -173,7 +177,10 @@ export default function RoutesPage() {
             <span className="hidden sm:inline">TravelWise</span>
           </div>
           <Stepper current={4} />
-          <DataSourceBadge source={source} error={error} />
+          <div className="flex items-center gap-2">
+            <PassportLink />
+            <DataSourceBadge source={source} error={error} />
+          </div>
         </header>
 
         {/* title */}
@@ -253,7 +260,7 @@ function SummaryBar({ route }: { route: UnifiedRoute }) {
         {route.totalFare != null && route.totalFare > 0 && (
           <div className="text-right">
             <p className="font-display text-xl font-semibold text-lagoon-200">{formatMoney(route.totalFare)}</p>
-            <p className="text-xs text-slate-500">est. fare</p>
+            <p className="text-xs text-slate-400">est. fare</p>
           </div>
         )}
       </div>

@@ -76,6 +76,17 @@ class RoutePreferences(BaseModel):
         description="Weight for mode preference matching in scoring",
     )
 
+    weight_wait_time: float = Field(
+        default=0.3,
+        ge=0,
+        description=(
+            "Weight for total time spent waiting between legs in scoring. "
+            "Separate from weight_transfers: two routes can have the same "
+            "transfer count but very different cumulative buffer time "
+            "depending on how well the connections line up."
+        ),
+    )
+
 
 class RoutingRequest(BaseModel):
     origin: Location
@@ -96,10 +107,20 @@ class RoutingRequest(BaseModel):
     )
 
     max_transfers: int = Field(
-        default=3,
+        default=5,
         ge=0,
         le=5,
-        description="Maximum number of mode transfers allowed",
+        description=(
+            "Maximum number of mode transfers allowed. Now counts every "
+            "vehicle boarded after the first (previously only walking "
+            "between stops counted, so a route stitched from many buses "
+            "boarded one after another at the same stop looked like a "
+            "single 0-transfer ride). Defaults to the max allowed rather "
+            "than a low value — this is a hard cutoff, not a preference: "
+            "capping it low prunes away real multi-bus routes entirely "
+            "instead of letting the scorer (weight_transfers, "
+            "weight_wait_time) rank them honestly behind better options."
+        ),
     )
 
     preferences: RoutePreferences = Field(
@@ -184,6 +205,11 @@ class RouteResult(BaseModel):
         description="Total time spent walking (transfers + first/last mile)",
     )
 
+    total_wait_minutes: float = Field(
+        default=0.0,
+        description="Total buffer time spent waiting for a connection across all legs",
+    )
+
     total_transit_minutes: float = Field(
         default=0.0,
         description="Total time on public transport",
@@ -205,6 +231,10 @@ class RouteResult(BaseModel):
     score_mode_preference: float | None = Field(
         default=None,
         description="Normalized mode preference score",
+    )
+    score_wait: float | None = Field(
+        default=None,
+        description="Normalized wait-time score",
     )
     final_score: float | None = Field(
         default=None,

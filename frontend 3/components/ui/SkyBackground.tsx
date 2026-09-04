@@ -5,13 +5,11 @@ import { useEffect, useRef } from "react";
 /**
  * The login page's backdrop: a sky/clouds clip that sits still on its first
  * frame until the person taps "Continue & explore". At that point `play`
- * flips true and the clip plays through once (clouds drifting, a plane
- * crossing) — the movement itself is the cue that something is happening,
- * rather than a separate transition effect layered on top. When the clip
- * ends, `onEnded` hands off to the caller, which navigates to Discover.
- * There is no scale/zoom transform on the video — Discover's own background
- * simply fades in on arrival, so the two clips read as one smooth dissolve
- * instead of a camera push.
+ * flips true, the clip plays through once at 1.6x (clouds drifting, a plane
+ * crossing) while gently zooming in (`animate-video-zoom-in`), then holds at
+ * that push-in until `onEnded` hands off to the caller, which navigates to
+ * Discover — so the cut reads as a deliberate camera push into the next
+ * scene rather than a flat clip swap.
  */
 export default function SkyBackground({
   play,
@@ -27,6 +25,9 @@ export default function SkyBackground({
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !play) return;
+    // The clip itself runs ~5s — sped up so the transition reads as a quick
+    // beat rather than a wait before Discover appears.
+    v.playbackRate = 1.6;
     v.play().catch(() => onEnded?.());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [play]);
@@ -38,7 +39,7 @@ export default function SkyBackground({
     >
       <video
         ref={videoRef}
-        className="h-full w-full object-cover"
+        className={`h-full w-full object-cover ${play ? "animate-video-zoom-in" : ""}`}
         src="/videos/login-clouds-transition.mp4"
         muted
         playsInline

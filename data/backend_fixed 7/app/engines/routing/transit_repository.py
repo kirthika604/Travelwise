@@ -3,6 +3,8 @@ from typing import Any
 
 import asyncpg
 
+from app.time_utils import time_of_day
+
 
 class TransitRepository:
 
@@ -67,6 +69,56 @@ class TransitRepository:
                 radius_km * 1000,
                 limit,
             )
+
+    async def get_stop_coords(self, stop_ids: list[str]) -> dict[str, tuple[float, float]]:
+        """
+        Batched (lat, lon) lookup for a set of stop ids — used when the
+        search never reaches the destination at all, to work out which of
+        the stops it *did* reach is geographically closest to it, so that
+        can be offered as a partial journey instead of a bare "no routes".
+        """
+        if not stop_ids:
+            return {}
+
+        async with self.pool.acquire() as connection:
+            rows = await connection.fetch(
+                "SELECT stop_id, lat, lon FROM transit.stops WHERE stop_id = ANY($1::text[])",
+                stop_ids,
+            )
+        return {row["stop_id"]: (row["lat"], row["lon"]) for row in rows}
+
+    async def filter_stops_by_route_types(
+        self, stop_ids: list[str], route_types: list[int]
+    ) -> set[str]:
+        """
+        Which of these stop_ids are served by at least one trip on any of
+        the given GTFS route_types (e.g. [1, 2] for Metro/Train) — used to
+        seed a supplementary train/metro-only search. The main search is a
+        greedy earliest-arrival walk over the whole graph, and a stop
+        served mostly by frequent buses generates far more competing queue
+        entries than one served by a once-every-15-minutes train; the
+        train branch can end up never finishing at all, not just ranked
+        lower, even when a real direct train exists. This lets the caller
+        give train/metro their own dedicated shot instead of leaving them
+        to win or lose that race.
+        """
+        if not stop_ids:
+            return set()
+
+        async with self.pool.acquire() as connection:
+            rows = await connection.fetch(
+                """
+                SELECT DISTINCT st.stop_id
+                FROM transit.stop_times st
+                JOIN transit.trips t ON t.trip_id = st.trip_id
+                JOIN transit.routes r ON r.route_id = t.route_id
+                WHERE st.stop_id = ANY($1::text[])
+                  AND r.route_type = ANY($2::int[])
+                """,
+                stop_ids,
+                route_types,
+            )
+        return {row["stop_id"] for row in rows}
 
     async def find_direct_connections(
         self,
@@ -191,7 +243,7 @@ class TransitRepository:
         Filters by active service_ids for time-based availability.
         """
 
-        departure_time_str = departure_after.strftime("%H:%M:%S")
+        departure_time_interval = time_of_day(departure_after)
 
         query = """
             SELECT
@@ -219,7 +271,7 @@ class TransitRepository:
             return await connection.fetch(
                 query,
                 stop_id,
-                departure_time_str,
+                departure_time_interval,
                 service_ids,
                 limit,
             )
@@ -239,6 +291,8 @@ class TransitRepository:
                 SELECT
                     st.stop_id,
                     s.stop_name,
+                    s.lat,
+                    s.lon,
                     st.arrival_time,
                     st.departure_time,
                     st.stop_sequence,
@@ -258,6 +312,8 @@ class TransitRepository:
             SELECT
                 ts.stop_id,
                 ts.stop_name,
+                ts.lat,
+                ts.lon,
                 ts.arrival_time,
                 ts.departure_time,
                 ts.stop_sequence
@@ -466,11 +522,16 @@ class TransitRepository:
     def _interval_to_seconds(interval_val) -> int:
         """
         Convert a PostgreSQL INTERVAL or string like '08:00:00' to total seconds.
-        Handles both INTERVAL objects and string representations.
+        Handles both INTERVAL objects and string representations. A
+        timedelta (what asyncpg actually decodes an INTERVAL into) is read
+        via total_seconds() directly — str()'ing one >=24h renders as
+        "N day(s), H:MM:SS", which the HH:MM:SS split below can't parse.
         """
 
         if interval_val is None:
             return 0
+        if isinstance(interval_val, timedelta):
+            return int(interval_val.total_seconds())
 
         s = str(interval_val).strip()
 

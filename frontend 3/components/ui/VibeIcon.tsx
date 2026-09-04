@@ -16,6 +16,7 @@ import {
   Gem,
   Puzzle,
   MapPin,
+  Clapperboard,
   type LucideIcon,
 } from "lucide-react";
 
@@ -37,6 +38,7 @@ const ICONS: Record<string, LucideIcon> = {
   Gem,
   Puzzle,
   MapPin,
+  Clapperboard,
 };
 
 // Resolves a VibeDef's icon key (e.g. "Landmark") to its lucide-react

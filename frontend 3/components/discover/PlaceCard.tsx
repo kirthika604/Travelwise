@@ -100,7 +100,12 @@ export default function PlaceCard({
             {selected ? <Check size={15} /> : <Plus size={15} />}
             {selected ? "Added" : "Add"}
           </button>
-          <button onClick={onRoute} className="btn glass px-3 py-2 text-sm hover:bg-white/10" title="Plan a route straight here">
+          <button
+            onClick={onRoute}
+            className="btn glass px-3 py-2 text-sm hover:bg-white/10"
+            aria-label="Plan a route straight here"
+            title="Plan a route straight here"
+          >
             <Route size={15} className="text-lagoon-300" />
           </button>
         </div>

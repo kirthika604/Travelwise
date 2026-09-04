@@ -9,10 +9,11 @@ import type {
   CombinationResponse,
   DiscoveryRequest,
   DiscoveryResponse,
+  PlaceSummary,
   RoutingRequest,
   RoutingResponse,
 } from "./types";
-import { mockCombination, mockDiscovery, mockRouting } from "./mock";
+import { mockCombination, mockDiscovery, mockPlaces, mockRouting } from "./mock";
 
 const API_BASE = "/api";
 const FORCE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "1";
@@ -24,9 +25,9 @@ export interface ApiResult<T> {
   error?: string;
 }
 
-async function postJSON<T>(path: string, body: unknown): Promise<T> {
+async function postJSON<T>(path: string, body: unknown, timeoutMs = 12000): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       method: "POST",
@@ -34,6 +35,21 @@ async function postJSON<T>(path: string, body: unknown): Promise<T> {
       body: JSON.stringify(body),
       signal: controller.signal,
     });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`HTTP ${res.status}${text ? `: ${text.slice(0, 160)}` : ""}`);
+    }
+    return (await res.json()) as T;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function getJSON<T>(path: string): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+  try {
+    const res = await fetch(`${API_BASE}${path}`, { signal: controller.signal });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`HTTP ${res.status}${text ? `: ${text.slice(0, 160)}` : ""}`);
@@ -53,6 +69,20 @@ export async function discover(req: DiscoveryRequest): Promise<ApiResult<Discove
   }
 }
 
+// Full places catalog (id/name/lat/lon), used by the Explorer Passport's
+// "fog of war" map. Must come from the same source discover() used, so a
+// visit's stored place_id (a live-backend row id or a mock seed id) always
+// matches an id in this catalog — otherwise a checked-in place can never be
+// found here and its dot never lights up.
+export async function listPlaces(): Promise<ApiResult<PlaceSummary[]>> {
+  if (FORCE_MOCK) return { data: mockPlaces(), source: "mock" };
+  try {
+    return { data: await getJSON<PlaceSummary[]>("/places?limit=200"), source: "live" };
+  } catch (e) {
+    return { data: mockPlaces(), source: "mock", error: msg(e) };
+  }
+}
+
 export async function combine(req: CombinationRequest): Promise<ApiResult<CombinationResponse>> {
   if (FORCE_MOCK) return { data: mockCombination(req), source: "mock" };
   try {
@@ -65,7 +95,13 @@ export async function combine(req: CombinationRequest): Promise<ApiResult<Combin
 export async function route(req: RoutingRequest): Promise<ApiResult<RoutingResponse>> {
   if (FORCE_MOCK) return { data: mockRouting(req), source: "mock" };
   try {
-    return { data: await postJSON<RoutingResponse>("/routing", req), source: "live" };
+    // Multimodal pathfinding across the full GTFS graph is genuinely
+    // heavier than a discovery/combination lookup — a long cross-city
+    // request with several transfers can take 30+ seconds. The shared
+    // 12s timeout was cutting these off well before the backend finished,
+    // silently falling back to the mock's much cruder same-distance
+    // estimate every time.
+    return { data: await postJSON<RoutingResponse>("/routing", req, 45000), source: "live" };
   } catch (e) {
     return { data: mockRouting(req), source: "mock", error: msg(e) };
   }

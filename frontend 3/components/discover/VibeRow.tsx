@@ -35,7 +35,7 @@ export default function VibeRow({
             <VibeIcon icon={icon} size={14} />
           </span>
           {title}
-          <span className="text-sm font-normal text-slate-500">· {count}</span>
+          <span className="text-sm font-normal text-slate-400">· {count}</span>
         </h2>
         <div className="flex gap-1 opacity-0 transition-opacity group-hover/row:opacity-100">
           <button onClick={() => nudge(-1)} className="grid h-8 w-8 place-items-center rounded-full glass hover:bg-white/10">

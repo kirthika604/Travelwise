@@ -28,14 +28,14 @@ export default function HorizontalCardRow({
       <button
         onClick={() => nudge(-1)}
         aria-label="Scroll left"
-        className="absolute -left-2 top-1/2 hidden -translate-y-1/2 place-items-center rounded-full glass p-2 opacity-0 shadow-glow transition-opacity group-hover/row:opacity-100 hover:bg-white/10 sm:grid"
+        className="absolute -left-2 top-1/2 hidden -translate-y-1/2 place-items-center rounded-full glass p-2 opacity-0 shadow-glow transition-opacity focus-visible:opacity-100 group-hover/row:opacity-100 hover:bg-white/10 sm:grid"
       >
         <ChevronLeft size={16} />
       </button>
       <button
         onClick={() => nudge(1)}
         aria-label="Scroll right"
-        className="absolute -right-2 top-1/2 hidden -translate-y-1/2 place-items-center rounded-full glass p-2 opacity-0 shadow-glow transition-opacity group-hover/row:opacity-100 hover:bg-white/10 sm:grid"
+        className="absolute -right-2 top-1/2 hidden -translate-y-1/2 place-items-center rounded-full glass p-2 opacity-0 shadow-glow transition-opacity focus-visible:opacity-100 group-hover/row:opacity-100 hover:bg-white/10 sm:grid"
       >
         <ChevronRight size={16} />
       </button>

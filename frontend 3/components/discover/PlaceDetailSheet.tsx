@@ -129,7 +129,7 @@ export default function PlaceDetailSheet({
               <span className="flex items-center gap-2">
                 <MapPin size={15} className="text-lagoon-300" /> View location
               </span>
-              <ExternalLink size={14} className="text-slate-500" />
+              <ExternalLink size={14} className="text-slate-400" />
             </a>
           )}
 

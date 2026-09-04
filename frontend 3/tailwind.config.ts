@@ -77,6 +77,13 @@ const config: Config = {
           "0%": { opacity: "0", transform: "translateY(24px) scale(0.95)" },
           "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
         },
+        // Login → Discover hand-off: the sky clip pushes in slightly as it
+        // plays, so the cut to Discover reads as a camera move rather than a
+        // flat clip swap.
+        "video-zoom-in": {
+          "0%": { transform: "scale(1)" },
+          "100%": { transform: "scale(1.14)" },
+        },
       },
       animation: {
         "fade-up": "fade-up 0.5s cubic-bezier(0.22,1,0.36,1) both",
@@ -86,6 +93,7 @@ const config: Config = {
         "reveal-content": "reveal-content 0.7s cubic-bezier(0.22,1,0.36,1) both",
         "fade-in": "fade-in 1.1s ease-out both",
         "card-reveal": "card-reveal 0.6s cubic-bezier(0.22,1,0.36,1) both",
+        "video-zoom-in": "video-zoom-in 1.8s cubic-bezier(0.22,1,0.36,1) both",
       },
     },
   },

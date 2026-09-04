@@ -31,7 +31,7 @@ export default function Segmented<T extends string>({
             <span className="flex flex-col items-center leading-tight">
               <span className="font-semibold">{o.label}</span>
               {o.hint && (
-                <span className={active ? "text-[11px] text-night-900/70" : "text-[11px] text-slate-500"}>
+                <span className={active ? "text-[11px] text-night-900/70" : "text-[11px] text-slate-400"}>
                   {o.hint}
                 </span>
               )}

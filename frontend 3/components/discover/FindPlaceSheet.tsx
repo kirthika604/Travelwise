@@ -116,7 +116,7 @@ export default function FindPlaceSheet({
             onChange={(e) => setF((s) => ({ ...s, available_hours: Number(e.target.value) }))}
             className="w-full accent-lagoon-400"
           />
-          <div className="mt-1 flex justify-between text-[11px] text-slate-500">
+          <div className="mt-1 flex justify-between text-[11px] text-slate-400">
             <span>1h</span>
             <span>24h</span>
             <span>2 days</span>
@@ -127,7 +127,7 @@ export default function FindPlaceSheet({
         <div>
           <div className="mb-2 flex items-center justify-between">
             <SectionLabel className="mb-0">
-              Max distance <span className="text-slate-500">(optional)</span>
+              Max distance <span className="text-slate-400">(optional)</span>
             </SectionLabel>
             <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-400">
               <input
@@ -149,7 +149,7 @@ export default function FindPlaceSheet({
             onChange={(e) => setF((s) => ({ ...s, radius_km: Number(e.target.value) }))}
             className="w-full accent-lagoon-400 disabled:opacity-40"
           />
-          <div className="mt-1 flex justify-between text-[11px] text-slate-500">
+          <div className="mt-1 flex justify-between text-[11px] text-slate-400">
             <span>1 km</span>
             <span className="font-semibold text-slate-300">
               {anyDistance ? "Any" : `${f.radius_km ?? 8} km`}
@@ -161,7 +161,7 @@ export default function FindPlaceSheet({
         {/* Preferred time of day (optional) */}
         <div>
           <SectionLabel>
-            Best time to go <span className="text-slate-500">(optional)</span>
+            Best time to go <span className="text-slate-400">(optional)</span>
           </SectionLabel>
           <div className="flex flex-wrap gap-2">
             {TIMES_OF_DAY.map((t) => {

@@ -256,10 +256,12 @@ export interface RouteResult {
   modes_used: string[];
   total_walking_minutes: number;
   total_transit_minutes: number;
+  total_wait_minutes?: number;
   score_duration?: number | null;
   score_transfers?: number | null;
   score_walking?: number | null;
   score_mode_preference?: number | null;
+  score_wait?: number | null;
   final_score?: number | null;
 }
 

@@ -32,6 +32,7 @@ from .schemas import (
     RoutingResponse,
 )
 from .transit_repository import TransitRepository
+from ..combination.algorithms import haversine_distance_km
 
 
 # ──────────────────────────────────────────────
@@ -41,6 +42,57 @@ from .transit_repository import TransitRepository
 WALKING_SPEED_KMPH = 5.0
 TRANSFER_WALK_SPEED_KMPH = 4.0
 MAX_TRANSFER_DISTANCE_KM = 0.5
+# Rough city-traffic average, for estimating an auto/taxi leg's duration
+# once it's past MAX_COMFORTABLE_WALK_KM — walking-pace math would wildly
+# overstate how long that stretch actually takes by road.
+AUTO_SPEED_KMPH = 20.0
+
+# A real bus almost never shows up exactly on the GTFS-scheduled minute —
+# traffic, driver behavior, etc. Trusting the schedule literally (a
+# computed gap of, say, 1-2 minutes) reads as far more reliable than city
+# bus service actually is. Metro/train run on dedicated track/right-of-way
+# and are close enough to on-time that their own schedule is trustworthy,
+# so this floor applies to bus only (GTFS route_type 3).
+MIN_BUS_WAIT_MINUTES = 15.0
+
+# Metro runs frequently enough (and predictably enough, on dedicated
+# track) that a flat assumed wait is simpler and just as realistic as
+# computing it from the exact headway window — used in place of the
+# actual computed frequency-based wait below.
+METRO_WAIT_MINUTES = 5.0
+
+# Beyond this, a "walk to the stop" leg reads as an auto/taxi leg instead —
+# past about 15 minutes on foot, that's genuinely how people actually cover
+# that gap, not by walking it.
+MAX_COMFORTABLE_WALK_KM = 1.2
+
+# If nothing is within the caller's requested walking radius at all (e.g. a
+# campus interior or a beach with no stop nearby), retry once at this much
+# wider radius purely to find *some* usable stop — rather than giving up
+# with "no route" when the honest answer is "public transit gets you to
+# within N km, then take an auto the rest of the way". Matches the
+# schema's own upper bound on max_walking_distance_km, so it's never
+# narrower than a caller could have asked for directly.
+FALLBACK_STOP_SEARCH_RADIUS_KM = 5.0
+
+# Blended cross-city transit speed used ONLY to bias which frontier stop
+# the search explores next — never to compute an actual reported time.
+# Without this, the search is plain earliest-arrival Dijkstra: it expands
+# strictly in order of elapsed time, with zero notion of which direction
+# the destination is in. At a busy interchange with 40+ onward routes,
+# that means dozens of stops in totally unrelated parts of the city get
+# explored before a stop one transfer closer to the actual destination
+# does, just because they happen to have an earlier bus. Verified
+# directly: Potheri -> Sriperumbudur (real, ~2-transfer bus journey, stop
+# confirmed 220m from the destination) needed 6000+ search iterations
+# (34s+) to complete under plain earliest-arrival ordering, and never
+# completed at all within the normal 2000-iteration/~12s budget — the
+# search just never got there. Nudging the priority queue toward stops
+# that are actually closer to the destination (while keeping every
+# stored arrival_time exact and real) fixes that without touching what
+# routes are found or their reported times, only the order they're
+# discovered in.
+HEURISTIC_SPEED_KMPH = 25.0
 
 # GTFS route_type → (Mode Name, Display Label, Agency)
 # Maps to the standard GTFS route_type values
@@ -193,6 +245,19 @@ class MultiModalRouter:
             radius_km=request.max_walking_distance_km,
             limit=30,
         )
+        # Nothing within comfortable walking distance (a campus interior,
+        # a stretch of coastline, ...) doesn't mean no transit exists at
+        # all — widen the search just to locate the nearest usable stop.
+        # _complete_route / the origin-init step relabel this leg as
+        # Auto/Taxi once it's past MAX_COMFORTABLE_WALK_KM, so the caller
+        # sees an honest "get to X, then take an auto" instead of nothing.
+        if not origin_stops:
+            origin_stops = await self.repository.get_nearby_stops(
+                latitude=request.origin.latitude,
+                longitude=request.origin.longitude,
+                radius_km=FALLBACK_STOP_SEARCH_RADIUS_KM,
+                limit=20,
+            )
 
         # ── Step 2: Find destination stops ──
         dest_stops = await self.repository.get_nearby_stops(
@@ -201,6 +266,13 @@ class MultiModalRouter:
             radius_km=request.max_walking_distance_km,
             limit=30,
         )
+        if not dest_stops:
+            dest_stops = await self.repository.get_nearby_stops(
+                latitude=request.destination.latitude,
+                longitude=request.destination.longitude,
+                radius_km=FALLBACK_STOP_SEARCH_RADIUS_KM,
+                limit=20,
+            )
 
         if not origin_stops or not dest_stops:
             return RoutingResponse(total_routes=0, routes=[])
@@ -224,7 +296,50 @@ class MultiModalRouter:
             service_ids=service_ids,
             max_walking_distance_km=request.max_walking_distance_km,
             max_transfers=request.max_transfers,
+            max_results=request.max_results,
+            dest_lat=request.destination.latitude,
+            dest_lon=request.destination.longitude,
         )
+
+        # ── Step 4b: give Metro/Train their own shot ──
+        # The main search above is a greedy earliest-arrival walk over the
+        # whole graph. Bus service in this dataset is far more frequent
+        # than train/metro, so a bus branch generates many more competing
+        # queue entries — the train/metro branch can end up never
+        # completing at all within budget, not merely ranked lower, even
+        # when a real direct train exists (verified directly: a route with
+        # zero train/metro options among 30 raw bus-only candidates, for a
+        # destination just past a real, scheduled, same-hour train stop).
+        # Re-run a small, cheap, separate search seeded ONLY from nearby
+        # train/metro stops so those modes always get evaluated on their
+        # own merits instead of just losing that race silently.
+        already_has_rail = any(
+            step.mode in ("Metro", "Train")
+            for label in found_labels
+            for step in label.steps
+        )
+        if not already_has_rail:
+            rail_stop_ids = await self.repository.filter_stops_by_route_types(
+                [s["stop_id"] for s in origin_stops], [1, 2]
+            )
+            rail_origin_stops = [s for s in origin_stops if s["stop_id"] in rail_stop_ids]
+            if rail_origin_stops:
+                rail_labels = await self._multi_round_search(
+                    origin_stops=rail_origin_stops,
+                    dest_stop_ids=dest_stop_ids,
+                    dest_stops=dest_stops,
+                    departure_time=request.departure_time,
+                    service_ids=service_ids,
+                    max_walking_distance_km=request.max_walking_distance_km,
+                    max_transfers=request.max_transfers,
+                    max_results=request.max_results,
+                    dest_lat=request.destination.latitude,
+                    dest_lon=request.destination.longitude,
+                    max_iterations_override=800,
+                    target_route_count_override=3,
+                    always_add_partial=True,
+                )
+                found_labels = found_labels + rail_labels
 
         # ── Step 5: Build RouteResult objects ──
         route_results = []
@@ -239,10 +354,12 @@ class MultiModalRouter:
                 for step in label.steps
                 if step.mode == "Walk"
             )
+            # Auto/Taxi legs are neither walking nor transit — they're the
+            # "last mile" gap transit itself doesn't cover.
             total_transit = sum(
                 step.duration_minutes or 0
                 for step in label.steps
-                if step.mode != "Walk"
+                if step.mode not in ("Walk", "Auto")
             )
 
             modes_used = list({
@@ -250,6 +367,8 @@ class MultiModalRouter:
                 for step in label.steps
                 if step.mode != "Walk"
             })
+
+            total_wait = sum(step.wait_time_minutes or 0 for step in label.steps)
 
             # ── Apply hard constraint: max walking time ──
             if (
@@ -275,6 +394,7 @@ class MultiModalRouter:
                 modes_used=modes_used,
                 total_walking_minutes=round(total_walking, 1),
                 total_transit_minutes=round(total_transit, 1),
+                total_wait_minutes=round(total_wait, 1),
             ))
 
         # ── Step 6: Score and rank ──
@@ -301,12 +421,39 @@ class MultiModalRouter:
         service_ids: list[str],
         max_walking_distance_km: float,
         max_transfers: int,
+        max_results: int = 10,
+        dest_lat: float | None = None,
+        dest_lon: float | None = None,
+        max_iterations_override: int | None = None,
+        target_route_count_override: int | None = None,
+        track_partial_override: bool | None = None,
+        always_add_partial: bool = False,
     ) -> list[JourneyLabel]:
         """
-        Modified RAPTOR multi-round search.
+        Modified RAPTOR multi-round search. The *_override params let a
+        caller run a smaller, cheaper supplementary pass (e.g. a
+        train/metro-only search seeded from a restricted origin_stops) on
+        top of the normal full search, without touching that search's own
+        tuned budget.
         """
 
         all_found_routes: list[JourneyLabel] = []
+
+        # Best point actually reached, in case the search never makes it to
+        # any dest_stop at all within budget — e.g. a real path exists but
+        # needs more transfers/exploration than is practical to search for
+        # interactively, or the destination genuinely has no nearby stop
+        # even after the caller-facing widened search. Tracked continuously
+        # (not just as a last resort) so there's always something to fall
+        # back to rather than a bare "no routes" when transit gets you
+        # most of the way there.
+        best_partial_label: JourneyLabel | None = None
+        best_partial_dist_km: float = float("inf")
+        track_partial = (
+            track_partial_override
+            if track_partial_override is not None
+            else dest_lat is not None and dest_lon is not None
+        )
 
         queue: list[tuple] = []
         best_arrival: dict[tuple, datetime] = {}
@@ -315,14 +462,21 @@ class MultiModalRouter:
         for stop in origin_stops:
             stop_id = stop["stop_id"]
             walk_dist = float(stop["distance_km"])
-            walk_min = (walk_dist / WALKING_SPEED_KMPH) * 60
+            too_far_to_walk = walk_dist > MAX_COMFORTABLE_WALK_KM
+            walk_min = (
+                walk_dist / (AUTO_SPEED_KMPH if too_far_to_walk else WALKING_SPEED_KMPH)
+            ) * 60
             walk_arrival = departure_time + timedelta(minutes=walk_min)
 
             walk_step = RouteStep(
-                mode="Walk",
-                mode_label="Walk",
+                mode="Auto" if too_far_to_walk else "Walk",
+                mode_label="Auto/Taxi" if too_far_to_walk else "Walk",
                 agency="",
-                instruction=f"Walk to {stop['stop_name']}",
+                instruction=(
+                    f"Too far to walk ({walk_dist:.1f} km) — take an auto/taxi to {stop['stop_name']}"
+                    if too_far_to_walk
+                    else f"Walk to {stop['stop_name']}"
+                ),
                 from_name="Your Location",
                 to_name=stop["stop_name"],
                 departure_time=departure_time,
@@ -342,14 +496,36 @@ class MultiModalRouter:
 
             state_key = (stop_id, 0)
             best_arrival[state_key] = walk_arrival
-            heapq.heappush(queue, (walk_arrival, stop_id, label))
+            priority = walk_arrival + self._heuristic_delta(
+                stop.get("stop_lat"), stop.get("stop_lon"), dest_lat, dest_lon
+            )
+            heapq.heappush(queue, (priority, stop_id, label))
 
         # ── Main search loop ──
         processed_states: set = set()
-        max_iterations = 5000
+        # Earliest-arrival label reached per stop — kept alongside
+        # processed_states so that if the search never reaches an actual
+        # dest_stop, there's still something concrete (the real steps
+        # taken) to build a partial-journey fallback from afterward.
+        reached_labels: dict[str, JourneyLabel] = {}
+        # A hard ceiling on exploration regardless of how many routes have
+        # already been found — nothing below ever broke out once the
+        # destination was reached, it just kept exploring the rest of the
+        # network looking for more alternatives. That made every request
+        # run the full 5000-iteration budget (each iteration can be several
+        # DB round trips), 30-45+ seconds even for short, simple trips.
+        max_iterations = max_iterations_override if max_iterations_override is not None else 2000
+        # Once there's a healthy surplus of candidates to rank and trim
+        # down to max_results from, stop — no need to keep exploring the
+        # rest of the network for marginal extra alternatives.
+        target_route_count = (
+            target_route_count_override
+            if target_route_count_override is not None
+            else max(max_results * 3, 15)
+        )
 
         for _ in range(max_iterations):
-            if not queue:
+            if not queue or len(all_found_routes) >= target_route_count:
                 break
 
             current_time, current_stop_id, current_label = heapq.heappop(queue)
@@ -362,6 +538,7 @@ class MultiModalRouter:
             if state_key in processed_states:
                 continue
             processed_states.add(state_key)
+            reached_labels.setdefault(current_stop_id, current_label)
 
             # ── Check: reached a destination stop? ──
             if current_stop_id in dest_stop_ids:
@@ -384,6 +561,8 @@ class MultiModalRouter:
                 service_ids=service_ids,
                 queue=queue,
                 best_arrival=best_arrival,
+                dest_lat=dest_lat,
+                dest_lon=dest_lon,
             )
 
             # ── Explore transfers to nearby stops ──
@@ -392,9 +571,140 @@ class MultiModalRouter:
                     current_label=current_label,
                     queue=queue,
                     best_arrival=best_arrival,
+                    dest_lat=dest_lat,
+                    dest_lon=dest_lon,
+                )
+
+        # No complete route to an actual dest_stop was found within
+        # budget — offer the closest point transit genuinely got to
+        # instead of a bare "no routes", same spirit as the widened-radius
+        # fallback above but for when the gap is in the search itself
+        # rather than in stop coverage.
+        #
+        # `always_add_partial` additionally surfaces this even when other
+        # completions WERE found — needed for the rail-only supplementary
+        # search: a destination can have bus stops within the normal
+        # search radius (so dest_stop_ids is never empty and the search
+        # completes some bus-heavy route) while the nearest *rail* stop
+        # sits just outside it. Without this, that rail-only pass's own
+        # best result — real train ride + a short last-mile hop — never
+        # gets a chance to compete on the merits, because the ordinary
+        # "only when nothing completed" fallback never triggers (verified:
+        # Guindy National Park has bus stops ~200-300m away, so a genuine
+        # Potheri->Guindy train + short auto never surfaced even though
+        # it's a faster, more direct journey than the bus-only routes
+        # found).
+        if (not all_found_routes or always_add_partial) and track_partial and reached_labels:
+            stop_ids = list(reached_labels.keys())
+            coords = await self.repository.get_stop_coords(stop_ids)
+
+            # Rank candidates by estimated total arrival time (label's own
+            # arrival + a last-mile leg over the remaining distance), not
+            # by remaining distance alone. Picking purely on distance
+            # favored a stop reached only via a long, convoluted path
+            # (several transfers, much more elapsed time) just because it
+            # happened to land geometrically closer to the destination
+            # than a stop reached directly and quickly — e.g. a 3-transfer
+            # detour ending 1.1km from the destination beat a direct
+            # 1-hop train ride ending 2.7km away, even though the direct
+            # ride's total door-to-door time was far shorter once the
+            # last-mile leg is added on both sides.
+            best_label: JourneyLabel | None = None
+            best_dist_km = float("inf")
+            best_eta: datetime | None = None
+            for stop_id, label in reached_labels.items():
+                coord = coords.get(stop_id)
+                if not coord:
+                    continue
+                dist = haversine_distance_km(coord[0], coord[1], dest_lat, dest_lon)
+                too_far_to_walk = dist > MAX_COMFORTABLE_WALK_KM
+                last_mile_min = (
+                    dist / (AUTO_SPEED_KMPH if too_far_to_walk else WALKING_SPEED_KMPH)
+                ) * 60
+                eta = label.arrival_time + timedelta(minutes=last_mile_min)
+                if best_eta is None or eta < best_eta:
+                    best_eta = eta
+                    best_dist_km = dist
+                    best_label = label
+
+            # No separate distance cap here — best_label was already chosen
+            # by estimated total door-to-door ETA (real transit ride +
+            # realistic last-mile leg), so a genuinely far-off candidate
+            # loses that comparison on its own merits rather than needing a
+            # hard cutoff. A fixed cap here previously rejected legitimate
+            # fast candidates just for landing a bit past an arbitrary
+            # radius (verified: Guindy, the correct answer for a Besant
+            # Nagar Beach trip, sits 6.1km away — just over a 5km cap —
+            # while still being the fastest reachable partial by a wide
+            # margin; the cap silently dropped it and produced 0 routes).
+            if best_label is not None:
+                all_found_routes.append(
+                    self._build_partial_route(best_label, best_dist_km, departure_time)
                 )
 
         return all_found_routes
+
+    def _build_partial_route(
+        self,
+        current_label: JourneyLabel,
+        remaining_dist_km: float,
+        departure_time: datetime,
+    ) -> JourneyLabel:
+        """
+        Like _complete_route, but for when the search never reached an
+        actual dest_stop — appends a final Auto/Walk leg using straight-
+        line distance to the real destination (there's no dest_stops
+        record to look a distance up from, since this stop isn't one).
+        """
+        too_far_to_walk = remaining_dist_km > MAX_COMFORTABLE_WALK_KM
+        final_min = (
+            remaining_dist_km / (AUTO_SPEED_KMPH if too_far_to_walk else WALKING_SPEED_KMPH)
+        ) * 60
+        final_arrival = current_label.arrival_time + timedelta(minutes=final_min)
+
+        final_step = RouteStep(
+            mode="Auto" if too_far_to_walk else "Walk",
+            mode_label="Auto/Taxi" if too_far_to_walk else "Walk",
+            agency="",
+            instruction=(
+                f"Public transit gets you this far — take an auto/taxi the "
+                f"remaining {remaining_dist_km:.1f} km to your destination"
+                if too_far_to_walk
+                else f"Walk the remaining {remaining_dist_km:.1f} km to your destination"
+            ),
+            from_name=current_label.stop_name,
+            to_name="Your Destination",
+            departure_time=current_label.arrival_time,
+            arrival_time=final_arrival,
+            duration_minutes=round(final_min, 1),
+            distance_km=round(remaining_dist_km, 2),
+        )
+
+        return JourneyLabel(
+            arrival_time=final_arrival,
+            stop_id=current_label.stop_id,
+            stop_name=current_label.stop_name,
+            steps=current_label.steps + [final_step],
+            trip_ids=current_label.trip_ids,
+            transfer_count=current_label.transfer_count,
+        )
+
+    @staticmethod
+    def _heuristic_delta(
+        lat: float | None,
+        lon: float | None,
+        dest_lat: float | None,
+        dest_lon: float | None,
+    ) -> timedelta:
+        """
+        Estimated remaining time from (lat, lon) to the destination, as a
+        priority-queue nudge only — see HEURISTIC_SPEED_KMPH. Falls back to
+        no nudge when coordinates aren't available for this stop.
+        """
+        if lat is None or lon is None or dest_lat is None or dest_lon is None:
+            return timedelta(0)
+        dist_km = haversine_distance_km(lat, lon, dest_lat, dest_lon)
+        return timedelta(hours=dist_km / HEURISTIC_SPEED_KMPH)
 
     async def _explore_trips(
         self,
@@ -403,6 +713,8 @@ class MultiModalRouter:
         service_ids: list[str],
         queue: list,
         best_arrival: dict,
+        dest_lat: float | None = None,
+        dest_lon: float | None = None,
     ):
         """
         Find all trips departing from current stop after current time.
@@ -418,6 +730,27 @@ class MultiModalRouter:
 
         if not trips:
             return
+
+        # Rows are ordered by departure_time ASC and, at a busy stop, can
+        # include many repeat departures of the same route (a bus running
+        # every few minutes contributes one row per run). Only the
+        # earliest instance of a route can ever produce a better arrival
+        # anywhere downstream — a later run on the same route just shifts
+        # every downstream time later by the same amount — so exploring
+        # every later instance too was pure redundant work: each one did
+        # its own get_trip_stops_after() DB round trip for that route's
+        # entire stop list, which is exactly what made a single search
+        # iteration balloon into 100+ queries and made real requests hang
+        # for minutes. Keeping only the first trip seen per route_id keeps
+        # the search's results identical while cutting that cost sharply.
+        seen_routes: set = set()
+        deduped_trips = []
+        for t in trips:
+            if t["route_id"] in seen_routes:
+                continue
+            seen_routes.add(t["route_id"])
+            deduped_trips.append(t)
+        trips = deduped_trips
 
         # ── Check which trips are frequency-based ──
         trip_ids = [trip["trip_id"] for trip in trips]
@@ -468,19 +801,44 @@ class MultiModalRouter:
                 if freq_info is None:
                     continue  # No more service in this frequency window
 
-                actual_departure = freq_info["next_departure"]
-                wait_minutes = freq_info["wait_seconds"] / 60.0
+                # Use a flat assumed wait rather than the exact computed
+                # headway gap — headway_secs/freq_window are kept from the
+                # real data below purely as informational context, not
+                # used to derive the wait or the actual departure time.
+                wait_minutes = METRO_WAIT_MINUTES
+                actual_departure = current_label.arrival_time + timedelta(
+                    minutes=wait_minutes
+                )
                 headway_secs = freq_info["headway_seconds"]
                 freq_window = (
                     f"{freq_info['window_start']}-{freq_info['window_end']}"
                 )
             else:
-                # Schedule-based service: use stop_times departure
+                # Schedule-based service: use stop_times departure. This is
+                # virtually every bus and train trip (frequency-based only
+                # covers metro in this dataset) — leaving wait_minutes as
+                # None here meant almost every transit leg silently
+                # reported zero wait time, no matter how long the real gap
+                # between arriving at the stop and that specific bus's
+                # scheduled departure actually was.
                 actual_departure = self._parse_gtfs_time(
                     trip["departure_time"],
                     departure_time.date(),
                 )
-                wait_minutes = None
+                wait_minutes = max(
+                    0.0,
+                    (actual_departure - current_label.arrival_time).total_seconds() / 60.0,
+                )
+                # Bus specifically gets a realistic minimum buffer — see
+                # MIN_BUS_WAIT_MINUTES. Shift actual_departure (not just the
+                # wait_minutes stat) so the padded wait genuinely propagates
+                # through arrival time, total duration, and scoring, rather
+                # than being cosmetic on a number nothing downstream reads.
+                if trip.get("route_type") == 3 and wait_minutes < MIN_BUS_WAIT_MINUTES:
+                    wait_minutes = MIN_BUS_WAIT_MINUTES
+                    actual_departure = current_label.arrival_time + timedelta(
+                        minutes=wait_minutes
+                    )
                 headway_secs = None
                 freq_window = None
 
@@ -558,7 +916,21 @@ class MultiModalRouter:
                     is_frequency_based=is_freq,
                     headway_seconds=headway_secs,
                     frequency_window=freq_window,
-                    wait_time_minutes=round(wait_minutes, 1) if wait_minutes else None,
+                    wait_time_minutes=round(wait_minutes, 1) if wait_minutes is not None else None,
+                )
+
+                # Boarding a vehicle is a real transfer once it's not the
+                # first one of the journey — even when it happens to be at
+                # the same physical stop the previous one dropped you at.
+                # Previously this only incremented in _explore_transfers
+                # (walking to a different stop), so a route stitched
+                # together from five separate buses, each caught right
+                # where the last one left off, scored as "0 transfers" —
+                # indistinguishable from one direct ride, hiding exactly
+                # the cumulative wait/connection risk each extra boarding
+                # actually costs a real rider.
+                new_transfer_count = (
+                    current_label.transfer_count + 1 if current_label.trip_ids else current_label.transfer_count
                 )
 
                 new_label = JourneyLabel(
@@ -567,7 +939,7 @@ class MultiModalRouter:
                     stop_name=ds["stop_name"],
                     steps=current_label.steps + [transit_step],
                     trip_ids=current_label.trip_ids + [trip_id],
-                    transfer_count=current_label.transfer_count,
+                    transfer_count=new_transfer_count,
                 )
 
                 arrival_key = (ds_stop_id, new_label.transfer_count)
@@ -576,9 +948,12 @@ class MultiModalRouter:
                     or actual_arrival < best_arrival[arrival_key]
                 ):
                     best_arrival[arrival_key] = actual_arrival
+                    priority = actual_arrival + self._heuristic_delta(
+                        ds.get("lat"), ds.get("lon"), dest_lat, dest_lon
+                    )
                     heapq.heappush(
                         queue,
-                        (actual_arrival, ds_stop_id, new_label),
+                        (priority, ds_stop_id, new_label),
                     )
 
     async def _explore_transfers(
@@ -586,6 +961,8 @@ class MultiModalRouter:
         current_label: JourneyLabel,
         queue: list,
         best_arrival: dict,
+        dest_lat: float | None = None,
+        dest_lon: float | None = None,
     ):
         """
         Find nearby stops and create transfer labels.
@@ -634,9 +1011,12 @@ class MultiModalRouter:
                 or transfer_arrival < best_arrival[arrival_key]
             ):
                 best_arrival[arrival_key] = transfer_arrival
+                priority = transfer_arrival + self._heuristic_delta(
+                    n.get("lat"), n.get("lon"), dest_lat, dest_lon
+                )
                 heapq.heappush(
                     queue,
-                    (transfer_arrival, n["stop_id"], new_label),
+                    (priority, n["stop_id"], new_label),
                 )
 
     def _complete_route(
@@ -657,16 +1037,23 @@ class MultiModalRouter:
             return None
 
         final_walk_dist = float(dest_stop["distance_km"])
-        final_walk_min = (final_walk_dist / WALKING_SPEED_KMPH) * 60
+        too_far_to_walk = final_walk_dist > MAX_COMFORTABLE_WALK_KM
+        final_walk_min = (
+            final_walk_dist / (AUTO_SPEED_KMPH if too_far_to_walk else WALKING_SPEED_KMPH)
+        ) * 60
         final_walk_arrival = current_label.arrival_time + timedelta(
             minutes=final_walk_min
         )
 
         final_step = RouteStep(
-            mode="Walk",
-            mode_label="Walk",
+            mode="Auto" if too_far_to_walk else "Walk",
+            mode_label="Auto/Taxi" if too_far_to_walk else "Walk",
             agency="",
-            instruction="Walk to destination",
+            instruction=(
+                f"Too far to walk ({final_walk_dist:.1f} km) — take an auto/taxi to your destination"
+                if too_far_to_walk
+                else "Walk to destination"
+            ),
             from_name=current_label.stop_name,
             to_name="Your Destination",
             departure_time=current_label.arrival_time,
@@ -787,10 +1174,12 @@ class MultiModalRouter:
         durations = [r.total_duration_minutes for r in routes]
         transfers = [r.transfers for r in routes]
         walking = [r.total_walking_minutes for r in routes]
+        waits = [r.total_wait_minutes for r in routes]
 
         min_dur, max_dur = min(durations), max(durations)
         min_trans, max_trans = min(transfers), max(transfers)
         min_walk, max_walk = min(walking), max(walking)
+        min_wait, max_wait = min(waits), max(waits)
 
         for route in routes:
 
@@ -819,12 +1208,22 @@ class MultiModalRouter:
                 route.modes_used, prefs
             )
 
+            # Wait-time score — separate from the transfer count itself:
+            # two routes with the same number of transfers can have very
+            # different total buffer time depending on how well each
+            # connection actually lines up.
+            if max_wait > min_wait:
+                score_wait = (route.total_wait_minutes - min_wait) / (max_wait - min_wait)
+            else:
+                score_wait = 0.0
+
             # ── Weighted combination ──
             final_score = (
                 prefs.weight_duration * score_dur
                 + prefs.weight_transfers * score_trans
                 + prefs.weight_walking * score_walk
                 + prefs.weight_mode_preference * score_mode
+                + prefs.weight_wait_time * score_wait
             )
 
             # ── Additional penalties ──
@@ -842,6 +1241,7 @@ class MultiModalRouter:
             route.score_transfers = round(score_trans, 3)
             route.score_walking = round(score_walk, 3)
             route.score_mode_preference = round(score_mode, 3)
+            route.score_wait = round(score_wait, 3)
             route.final_score = round(final_score, 3)
 
         # ── Sort by final score (lower = better) ──
@@ -893,13 +1293,23 @@ class MultiModalRouter:
     @staticmethod
     def _parse_gtfs_time(time_str, reference_date: date) -> datetime:
         """
-        Parse GTFS time string (may be >24:00:00) into datetime.
+        Parse a GTFS time (may be >24:00:00, i.e. after midnight of the
+        service day) into a datetime. Accepts either a timedelta (what
+        asyncpg decodes a Postgres INTERVAL column into) or a raw
+        "HH:MM:SS" GTFS string. A timedelta must be handled via
+        total_seconds() rather than str()'d and split on ":" — for values
+        >=24h, str(timedelta) renders as "N day(s), H:MM:SS", not the
+        "HH:MM:SS" this parser expects, which crashed on int("1 day, 0").
         """
 
-        parts = str(time_str).split(":")
-        hours = int(parts[0])
-        minutes = int(parts[1]) if len(parts) > 1 else 0
-        seconds = int(float(parts[2])) if len(parts) > 2 else 0
+        if isinstance(time_str, timedelta):
+            hours, remainder = divmod(int(time_str.total_seconds()), 3600)
+            minutes, seconds = divmod(remainder, 60)
+        else:
+            parts = str(time_str).split(":")
+            hours = int(parts[0])
+            minutes = int(parts[1]) if len(parts) > 1 else 0
+            seconds = int(float(parts[2])) if len(parts) > 2 else 0
 
         day_offset = 0
         if hours >= 24:
@@ -923,9 +1333,15 @@ class MultiModalRouter:
 # ──────────────────────────────────────────────
 
 def _interval_to_seconds(interval_val) -> int:
-    """Convert INTERVAL or HH:MM:SS string to total seconds."""
+    """Convert an INTERVAL (a timedelta, once asyncpg decodes it) or
+    HH:MM:SS string to total seconds. A timedelta is read via
+    total_seconds() directly — str()'ing one >=24h renders as
+    "N day(s), H:MM:SS", which the HH:MM:SS split below can't parse.
+    """
     if interval_val is None:
         return 0
+    if isinstance(interval_val, timedelta):
+        return int(interval_val.total_seconds())
 
     s = str(interval_val).strip()
     parts = s.split(":")

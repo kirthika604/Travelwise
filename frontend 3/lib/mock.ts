@@ -14,6 +14,7 @@ import type {
   ItineraryLeg,
   ItineraryResult,
   PlaceResult,
+  PlaceSummary,
   RouteResult,
   RouteStep,
   RoutingRequest,
@@ -182,6 +183,126 @@ export const SEED_PLACES: Seed[] = [
     description: "A garden café in a restored colonial bungalow — the city's favourite slow afternoon.",
     entry_min: null, entry_max: null, exp_min: 400, exp_max: 900,
   },
+  {
+    id: 18, name: "MA Chidambaram Stadium (Chepauk)", source: "poi", category: "Cultural",
+    budget_level: "Medium", tags: ["Cultural", "Youthful"], cuisines: [],
+    time_min: 1, time_max: 2, best_time_of_day: ["Anytime"], rating: 4.3,
+    latitude: 13.0632, longitude: 80.2794,
+    description: "Chennai's iconic cricket ground at Chepauk, home to Chennai Super Kings — a pilgrimage stop for cricket fans.",
+    entry_min: 0, entry_max: 200, exp_min: 0, exp_max: 200,
+  },
+  {
+    id: 19, name: "Valluvar Kottam", source: "poi", category: "Cultural",
+    budget_level: "Low", tags: ["Cultural", "Heritage"], cuisines: [],
+    time_min: 1, time_max: 1, best_time_of_day: ["Morning", "Evening"], rating: 4.3,
+    latitude: 13.0464, longitude: 80.2418,
+    description: "A chariot-shaped monument honouring Tamil poet-saint Thiruvalluvar, with the entire Thirukkural inscribed on its walls.",
+    entry_min: 0, entry_max: 20, exp_min: 0, exp_max: 50,
+  },
+  {
+    id: 20, name: "Vadapalani Murugan Temple", source: "poi", category: "Spiritual",
+    budget_level: "Low", tags: ["Spiritual", "Cultural"], cuisines: [],
+    time_min: 1, time_max: 1, best_time_of_day: ["Morning", "Evening"], rating: 4.5,
+    latitude: 13.0503, longitude: 80.2121,
+    description: "One of Chennai's most-visited temples, dedicated to Lord Murugan, known for its bustling daily crowds and vibrant festivals.",
+    entry_min: 0, entry_max: 0, exp_min: 0, exp_max: 100,
+  },
+  {
+    id: 21, name: "Marina Lighthouse", source: "poi", category: "Scenic",
+    budget_level: "Low", tags: ["Scenic", "Offbeat"], cuisines: [],
+    time_min: 1, time_max: 1, best_time_of_day: ["Evening"], rating: 4.2,
+    latitude: 13.0396, longitude: 80.2789,
+    description: "A working lighthouse powered by an elevator to the top, with sweeping views over Marina Beach and the coastline.",
+    entry_min: 10, entry_max: 20, exp_min: 0, exp_max: 50,
+  },
+  {
+    id: 22, name: "Anna Nagar Tower Park", source: "poi", category: "Family",
+    budget_level: "Low", tags: ["Family", "Peaceful", "Relaxing"], cuisines: [],
+    time_min: 1, time_max: 1, best_time_of_day: ["Evening"], rating: 4.1,
+    latitude: 13.085, longitude: 80.2101,
+    description: "A well-loved neighbourhood park built around a rocket-shaped tower, popular for evening walks and a musical fountain show.",
+    entry_min: 5, entry_max: 10, exp_min: 0, exp_max: 100,
+  },
+  {
+    id: 23, name: "Chennai Rail Museum (ICF)", source: "poi", category: "Offbeat",
+    budget_level: "Low", tags: ["Offbeat", "Family", "Historical"], cuisines: [],
+    time_min: 1, time_max: 2, best_time_of_day: ["Morning"], rating: 4.2,
+    latitude: 13.1128, longitude: 80.2273,
+    description: "An open-air museum by Integral Coach Factory showcasing vintage locomotives and coaches, with a mini train ride for kids.",
+    entry_min: 20, entry_max: 30, exp_min: 50, exp_max: 100,
+  },
+  {
+    id: 24, name: "IIT Madras Campus", source: "poi", category: "Peaceful",
+    budget_level: "Low", tags: ["Peaceful", "Natural", "Offbeat"], cuisines: [],
+    time_min: 1, time_max: 2, best_time_of_day: ["Evening"], rating: 4.6,
+    latitude: 12.9915, longitude: 80.2337,
+    description: "A sprawling, forested campus inside the city that's genuinely wild — spot deer and blackbuck on a walk or cycle through its shaded roads.",
+    entry_min: 0, entry_max: 0, exp_min: 0, exp_max: 0,
+  },
+  {
+    id: 25, name: "Muttukadu Boat House", source: "poi", category: "Adventure",
+    budget_level: "Medium", tags: ["Adventure", "Scenic"], cuisines: [],
+    time_min: 1, time_max: 2, best_time_of_day: ["Morning"], rating: 4.1,
+    latitude: 12.8258, longitude: 80.2445,
+    description: "A backwater on ECR known for boating, windsurfing and kayaking against a scenic lagoon backdrop.",
+    entry_min: 0, entry_max: 0, exp_min: 200, exp_max: 500,
+  },
+  {
+    id: 26, name: "Madras Crocodile Bank Trust", source: "poi", category: "Natural",
+    budget_level: "Low", tags: ["Natural", "Family", "Offbeat"], cuisines: [],
+    time_min: 1, time_max: 2, best_time_of_day: ["Morning"], rating: 4.4,
+    latitude: 12.8375, longitude: 80.2439,
+    description: "A pioneering reptile conservation centre on ECR, home to thousands of crocodiles and a working venom-extraction lab.",
+    entry_min: 60, entry_max: 60, exp_min: 100, exp_max: 200,
+  },
+  {
+    id: 27, name: "Neelankarai Beach", source: "poi", category: "Peaceful",
+    budget_level: "Low", tags: ["Peaceful", "Relaxing", "Scenic"], cuisines: [],
+    time_min: 1, time_max: 2, best_time_of_day: ["Evening"], rating: 4.0,
+    latitude: 12.9445, longitude: 80.2531,
+    description: "A quieter stretch of ECR coastline than Besant Nagar, popular with joggers and morning walkers.",
+    entry_min: 0, entry_max: 0, exp_min: 0, exp_max: 150,
+  },
+  {
+    id: 101, name: "Sathyam Cinemas", source: "poi", category: "Entertainment",
+    budget_level: "Medium", tags: ["Entertainment", "Fun", "Youthful"], cuisines: [],
+    time_min: 2, time_max: 3, best_time_of_day: ["Evening", "Night"], rating: 4.4,
+    latitude: 13.0569, longitude: 80.2637,
+    description: "Popular multiplex in Royapettah known for its big screens and Dolby Atmos halls — a go-to for big releases.",
+    entry_min: 150, entry_max: 400, exp_min: 300, exp_max: 700,
+  },
+  {
+    id: 102, name: "PVR Icon, Express Avenue", source: "poi", category: "Entertainment",
+    budget_level: "Medium", tags: ["Entertainment", "Fun", "Hangout"], cuisines: [],
+    time_min: 2, time_max: 3, best_time_of_day: ["Evening", "Night"], rating: 4.3,
+    latitude: 13.0592, longitude: 80.2635,
+    description: "Premium multiplex inside Express Avenue Mall, popular with the mall-and-movie crowd in Royapettah.",
+    entry_min: 180, entry_max: 450, exp_min: 300, exp_max: 800,
+  },
+  {
+    id: 103, name: "INOX Citi Centre", source: "poi", category: "Entertainment",
+    budget_level: "Medium", tags: ["Entertainment", "Fun", "Youthful"], cuisines: [],
+    time_min: 2, time_max: 3, best_time_of_day: ["Evening", "Night"], rating: 4.2,
+    latitude: 13.0367, longitude: 80.2676,
+    description: "Long-running multiplex inside Citi Centre mall on RK Salai, close to Mylapore and Alwarpet.",
+    entry_min: 150, entry_max: 400, exp_min: 300, exp_max: 700,
+  },
+  {
+    id: 104, name: "Rohini Silver Screens", source: "poi", category: "Entertainment",
+    budget_level: "Low", tags: ["Entertainment", "Fun", "Local Life"], cuisines: [],
+    time_min: 2, time_max: 3, best_time_of_day: ["Evening", "Night"], rating: 4.1,
+    latitude: 13.0745, longitude: 80.2497,
+    description: "Iconic single-screen-turned-multiplex near Egmore, a Chennai cinema landmark since the 1970s.",
+    entry_min: 100, entry_max: 250, exp_min: 200, exp_max: 500,
+  },
+  {
+    id: 105, name: "Mayajaal Multiplex", source: "poi", category: "Entertainment",
+    budget_level: "Medium", tags: ["Entertainment", "Fun", "Family"], cuisines: [],
+    time_min: 2, time_max: 3, best_time_of_day: ["Evening", "Night"], rating: 4.3,
+    latitude: 12.931, longitude: 80.252,
+    description: "Large multiplex and entertainment complex on ECR near Neelankarai, often paired with a beach evening.",
+    entry_min: 150, entry_max: 400, exp_min: 300, exp_max: 700,
+  },
 ];
 
 // ── Real GTFS stop names (nearest to each mock place) ───────────────────────
@@ -274,12 +395,60 @@ const REAL_STOPS: Record<string, { metro: string; rail: string; bus: string }> =
   },
 };
 
-/** Get the real GTFS stop name for a given place and mode */
-function getStopName(placeName: string, mode: "Metro" | "Train" | "Bus"): string {
-  const key = Object.keys(REAL_STOPS).find((k) => placeName.includes(k) || k.includes(placeName)) ?? placeName;
-  const stops = REAL_STOPS[key];
-  if (!stops) return `${placeName} ${mode === 'Metro' ? 'Metro Station' : mode === 'Train' ? 'Railway Station' : 'Bus Stop'}`;
+// Word-set match, not substring: REAL_STOPS' keys are hand-curated against
+// an older place-name list and drift from the live catalog's actual names
+// (e.g. "Besant Nagar (Elliot's) Beach" here vs. the live DB's "Besant
+// Nagar Beach (Elliot's Beach)" — same place, different word order and
+// apostrophe style). A plain .includes() check missed that entirely and
+// fell through to fabricating a station name instead of using the real,
+// curated one that was sitting right there under a slightly different key.
+function normalizedWords(s: string): Set<string> {
+  return new Set(
+    s
+      .toLowerCase()
+      .replace(/[’'().,]/g, "")
+      .split(/\s+/)
+      .filter(Boolean),
+  );
+}
+
+/** Get the real GTFS stop name for a given place and mode. Returns null if
+ * no curated entry matches closely enough — callers must not invent a
+ * specific station name in that case (there's no way to know one really
+ * exists nearby at all, let alone its name).
+ */
+function getStopName(placeName: string, mode: "Metro" | "Train" | "Bus"): string | null {
+  const target = normalizedWords(placeName);
+  let bestKey: string | null = null;
+  let bestRatio = 0;
+  for (const k of Object.keys(REAL_STOPS)) {
+    const candidate = normalizedWords(k);
+    const overlap = [...target].filter((w) => candidate.has(w)).length;
+    const ratio = overlap / Math.min(target.size, candidate.size);
+    if (ratio > bestRatio) {
+      bestRatio = ratio;
+      bestKey = k;
+    }
+  }
+  // Require most of the shorter name's words to be present — enough to
+  // survive word-order/punctuation drift, not so loose that an unrelated
+  // place with one shared word ("Beach", "Temple") matches by accident.
+  if (!bestKey || bestRatio < 0.6) return null;
+  const stops = REAL_STOPS[bestKey];
   return mode === "Metro" ? stops.metro : mode === "Train" ? stops.rail : stops.bus;
+}
+
+/** Same lookup, but falls back to a generic (still clearly fabricated)
+ * label instead of null — kept only for the Combination engine's
+ * itinerary-leg mock, which always assumes a transit leg exists and isn't
+ * (yet) set up to drop one when no real stop is known. Routing's own mock
+ * uses getStopName() directly and skips the mode entirely instead.
+ */
+function getStopNameOrFallback(placeName: string, mode: "Metro" | "Train" | "Bus"): string {
+  return (
+    getStopName(placeName, mode) ??
+    `${placeName} ${mode === "Metro" ? "Metro Station" : mode === "Train" ? "Railway Station" : "Bus Stop"}`
+  );
 }
 
 // ── Scoring (mirrors app/engines/discovery/service.py) ──────────────────────
@@ -321,6 +490,24 @@ function scoreRating(r?: number | null): number {
   return Math.max(0, Math.min(1, r / 5));
 }
 
+// Full catalog, mirroring GET /places — used as the mock fallback for the
+// Explorer Passport's fog-of-war map so seed ids line up with whatever
+// mockDiscovery() also handed out for a check-in.
+export function mockPlaces(): PlaceSummary[] {
+  return SEED_PLACES.map((s) => ({
+    id: s.id,
+    source: s.source,
+    name: s.name,
+    category: s.category,
+    budget_level: s.budget_level,
+    rating: s.rating,
+    image_url: s.image_url ?? null,
+    location_url: s.location_url ?? null,
+    lat: s.latitude,
+    lon: s.longitude,
+  }));
+}
+
 export function mockDiscovery(req: DiscoveryRequest): DiscoveryResponse {
   const origin =
     req.latitude != null && req.longitude != null
@@ -338,7 +525,12 @@ export function mockDiscovery(req: DiscoveryRequest): DiscoveryResponse {
       const t = scoreTime(req.available_hours, s.time_min, s.time_max);
       const d = scoreDistance(distance_km, req.radius_km);
       const r = scoreRating(s.rating);
-      const final = (i + b + t + d + r) / 5;
+      // Average only over signals we have data for — an unrated POI
+      // shouldn't be penalized relative to rated food places just because
+      // rating data doesn't exist for its source (mirrors the backend fix
+      // in app/engines/discovery/service.py).
+      const components = s.rating != null ? [i, b, t, d, r] : [i, b, t, d];
+      const final = components.reduce((a, x) => a + x, 0) / components.length;
       return {
         id: s.id, name: s.name, source: s.source, description: s.description, category: s.category,
         budget_level: s.budget_level,
@@ -365,13 +557,17 @@ export function mockDiscovery(req: DiscoveryRequest): DiscoveryResponse {
 }
 
 // ── Combination ─────────────────────────────────────────────────────────────
-const MODE_SPEED_KMPH: Record<string, number> = { Walk: 5, Bus: 18, Metro: 32, Train: 40 };
+const MODE_SPEED_KMPH: Record<string, number> = { Walk: 5, Bus: 18, Metro: 32, Train: 40, Auto: 20 };
 const FARE: Record<string, { base: number; perKm: number }> = {
   Walk: { base: 0, perKm: 0 },
   Bus: { base: 10, perKm: 2 },
   Metro: { base: 15, perKm: 2.5 },
   Train: { base: 10, perKm: 1.5 },
+  Auto: { base: 30, perKm: 15 },
 };
+// Past this, a "Walk" leg reads as absurd (an hour+ on foot) — same
+// threshold the routing engines use to relabel as Auto/Taxi instead.
+const MAX_COMFORTABLE_WALK_KM = 1.2;
 
 // Known Chennai metro & railway corridors (simplified from GTFS)
 const METRO_CORRIDORS = [
@@ -449,58 +645,84 @@ function buildLegs(order: CombinationRequest["places"], departISO: string): { le
         { latitude: p.latitude, longitude: p.longitude },
         { latitude: n.latitude, longitude: n.longitude },
       );
-      const mode = pickMode(dist, i, p.latitude, p.longitude);
+      let mode = pickMode(dist, i, p.latitude, p.longitude);
+      // A picked transit mode needs a real, confidently-matched stop name
+      // at both ends — otherwise this used to fabricate a station name
+      // like "<place> Metro Station" for places with no metro anywhere
+      // near them (e.g. a restaurant getting its own fake "Metro
+      // Station"). Downgrade to Walk/Auto instead when no real stop is
+      // known, same as the routing mock and both live backend engines.
+      if (mode !== "Walk") {
+        const hasRealStops =
+          getStopName(p.name, mode as "Metro" | "Train" | "Bus") != null &&
+          getStopName(n.name, mode as "Metro" | "Train" | "Bus") != null;
+        if (!hasRealStops) {
+          mode = dist > MAX_COMFORTABLE_WALK_KM ? "Auto" : "Walk";
+        }
+      }
       const speed = MODE_SPEED_KMPH[mode];
       const isWalk = mode === "Walk";
-      const wait = isWalk ? 0 : mode === "Metro" ? (weekend ? 8 : 4) : weekend ? 12 : 7;
+      const isAuto = mode === "Auto";
+      const hasTransit = !isWalk && !isAuto;
+      // Bus specifically gets a realistic minimum buffer — a real bus
+      // almost never shows up on the scheduled minute (traffic, driver
+      // behavior), unlike metro/train on dedicated track/right-of-way.
+      // Metro gets a flat assumed wait too — frequent/predictable enough
+      // on dedicated track that the exact schedule gap isn't worth
+      // trusting either way. Auto/taxi is on-demand — no scheduled wait.
+      const wait = !hasTransit ? 0 : mode === "Metro" ? 5 : mode === "Bus" ? (weekend ? 20 : 15) : weekend ? 12 : 7;
       const transitMin = (dist / speed) * 60;
       const walkMin = isWalk ? transitMin : Math.min(12, dist * 4);
-      const travelMin = isWalk ? transitMin : wait + transitMin + 6;
+      const travelMin = !hasTransit ? transitMin : wait + transitMin + 6;
       const departLeg = new Date(cursor);
       const arriveLeg = addMin(departLeg, travelMin);
       const fareInfo = FARE[mode];
       const fare = isWalk ? 0 : round(fareInfo.base + fareInfo.perKm * dist);
-      const modeLabel = isWalk ? "Walk" : mode === "Bus" ? `MTC Bus ${routeNo(i)}` : mode === "Metro" ? `CMRL Metro ${metroLine(i)}` : `SR EMU`;
-      const agencyName = isWalk ? "" : mode === "Bus" ? "MTC" : mode === "Metro" ? "CMRL" : "SR";
+      const modeLabel = isWalk ? "Walk" : isAuto ? "Auto/Taxi" : mode === "Bus" ? `MTC Bus ${routeNo(i)}` : mode === "Metro" ? `CMRL Metro ${metroLine(i)}` : `SR EMU`;
+      const agencyName = hasTransit ? (mode === "Bus" ? "MTC" : mode === "Metro" ? "CMRL" : "SR") : "";
       legs.push({
         from_place_name: p.name, to_place_name: n.name,
         from_latitude: p.latitude, from_longitude: p.longitude,
         to_latitude: n.latitude, to_longitude: n.longitude,
         depart_at: iso(departLeg), arrive_at: iso(arriveLeg),
         travel_duration_minutes: round(travelMin),
-        mode: isWalk ? "Walk" : `Walk+${mode}`,
+        mode: isWalk ? "Walk" : isAuto ? "Auto" : `Walk+${mode}`,
         mode_label: modeLabel, agency: agencyName,
-        transit_available: !isWalk,
-        walking_distance_km: isWalk ? round(dist) : round(Math.min(1, dist * 0.15)),
-        walking_minutes: round(walkMin),
-        route_name: isWalk ? null : mode === "Metro" ? metroLine(i) : mode === "Bus" ? routeNo(i) : "EMU",
-        route_type: isWalk ? null : mode === "Metro" ? 1 : mode === "Bus" ? 3 : 2,
-        trip_id: isWalk ? null : `T${1000 + i}`,
+        transit_available: hasTransit,
+        walking_distance_km: isWalk ? round(dist) : isAuto ? 0 : round(Math.min(1, dist * 0.15)),
+        walking_minutes: isWalk ? round(walkMin) : isAuto ? 0 : round(walkMin),
+        route_name: hasTransit ? (mode === "Metro" ? metroLine(i) : mode === "Bus" ? routeNo(i) : "EMU") : null,
+        route_type: hasTransit ? (mode === "Metro" ? 1 : mode === "Bus" ? 3 : 2) : null,
+        trip_id: hasTransit ? `T${1000 + i}` : null,
         service_id: weekend ? "weekend" : "weekday",
-        board_stop: isWalk ? null : getStopName(p.name, mode as "Metro" | "Train" | "Bus"),
-        alight_stop: isWalk ? null : getStopName(n.name, mode as "Metro" | "Train" | "Bus"),
+        board_stop: hasTransit ? getStopNameOrFallback(p.name, mode as "Metro" | "Train" | "Bus") : null,
+        alight_stop: hasTransit ? getStopNameOrFallback(n.name, mode as "Metro" | "Train" | "Bus") : null,
         wait_time_minutes: round(wait),
-        transit_time_minutes: round(isWalk ? 0 : transitMin),
+        transit_time_minutes: round(hasTransit ? transitMin : 0),
         transfers: 0,
-        route_steps: isWalk ? [] : (() => {
-          const boardFull = getStopName(p.name, mode as "Metro" | "Train" | "Bus");
-          const alightFull = getStopName(n.name, mode as "Metro" | "Train" | "Bus");
+        route_steps: !hasTransit
+          ? (isAuto
+              ? [{ mode: "Auto", mode_label: "Auto/Taxi", instruction: `Take an auto/taxi to ${n.name} (${dist.toFixed(1)} km)`, from_name: p.name, to_name: n.name, distance_km: round(dist), duration_minutes: round(transitMin) }]
+              : [])
+          : (() => {
+          const boardFull = getStopNameOrFallback(p.name, mode as "Metro" | "Train" | "Bus");
+          const alightFull = getStopNameOrFallback(n.name, mode as "Metro" | "Train" | "Bus");
           return [
             { mode: "Walk", mode_label: "Walk", instruction: `Walk to ${boardFull}`, from_name: p.name, to_name: boardFull, distance_km: round(0.3), duration_minutes: round(4) },
             { mode, mode_label: modeLabel, instruction: `Take ${modeLabel} from ${boardFull} to ${alightFull}`, from_name: boardFull, to_name: alightFull, route_name: mode === "Bus" ? routeNo(i) : mode === "Metro" ? "M1" : "EMU", route_type: mode === "Bus" ? 3 : mode === "Metro" ? 1 : 2, agency: agencyName, board_stop: boardFull, alight_stop: alightFull, duration_minutes: round(transitMin) },
             { mode: "Walk", mode_label: "Walk", instruction: `Walk to ${n.name}`, from_name: alightFull, to_name: n.name, distance_km: round(0.2), duration_minutes: round(3) },
           ];
         })(),
-        steps_summary: isWalk
-          ? [`Walk ${dist.toFixed(1)} km to ${n.name}`]
+        steps_summary: !hasTransit
+          ? [isAuto ? `Auto/taxi ${dist.toFixed(1)} km to ${n.name}` : `Walk ${dist.toFixed(1)} km to ${n.name}`]
           : (() => {
-              const boardFull = getStopName(p.name, mode as "Metro" | "Train" | "Bus");
-              const alightFull = getStopName(n.name, mode as "Metro" | "Train" | "Bus");
+              const boardFull = getStopNameOrFallback(p.name, mode as "Metro" | "Train" | "Bus");
+              const alightFull = getStopNameOrFallback(n.name, mode as "Metro" | "Train" | "Bus");
               return [`Walk to ${boardFull}`, `Take ${modeLabel} to ${alightFull}`, `Walk to ${n.name}`];
             })(),
         fare_total: fare,
-        fare_breakdown: isWalk ? {} : { base: fareInfo.base, distance: round(fareInfo.perKm * dist), total: fare },
-        fare_notes: isWalk ? ["Walking — no fare"] : [`Estimated ${mode} fare`],
+        fare_breakdown: hasTransit ? { base: fareInfo.base, distance: round(fareInfo.perKm * dist), total: fare } : isAuto ? { base: fareInfo.base, distance: round(fareInfo.perKm * dist), total: fare } : {},
+        fare_notes: isWalk ? ["Walking — no fare"] : isAuto ? ["Estimated auto/taxi fare"] : [`Estimated ${mode} fare`],
       });
       cursor = arriveLeg;
     }
@@ -543,26 +765,35 @@ function assemble(order: CombinationRequest["places"], req: CombinationRequest, 
   if (req.start_location && order.length > 0) {
     const first = order[0];
     const dist = haversineKm(req.start_location, { latitude: first.latitude, longitude: first.longitude });
-    const mode = pickMode(dist, 0, req.start_location.latitude, req.start_location.longitude);
+    let mode = pickMode(dist, 0, req.start_location.latitude, req.start_location.longitude);
+    // Same real-stop check as buildLegs() — don't fabricate a station
+    // name for the first place when no confidently-matched stop exists.
+    if (mode !== "Walk" && getStopName(first.name, mode as "Metro" | "Train" | "Bus") == null) {
+      mode = dist > MAX_COMFORTABLE_WALK_KM ? "Auto" : "Walk";
+    }
     const isWalk = mode === "Walk";
+    const isAuto = mode === "Auto";
+    const hasTransit = !isWalk && !isAuto;
     const speed = MODE_SPEED_KMPH[mode];
-    const waitMin = isWalk
+    // Bus gets a realistic minimum buffer — see the matching comment in
+    // buildLegs() above. Auto/taxi is on-demand — no scheduled wait.
+    const waitMin = !hasTransit
       ? 0
       : mode === "Metro"
-      ? weekend ? 8 : 4
+      ? 5
       : mode === "Train"
       ? weekend ? 11 : 6
-      : weekend ? 12 : 7;
-    const walkMin = isWalk ? round((dist / 5) * 60) : round(Math.min(12, dist * 4));
-    const transitMin = isWalk ? 0 : round((dist / speed) * 60);
-    const totalMin = walkMin + waitMin + transitMin + (isWalk ? 0 : 4);
+      : weekend ? 20 : 15;
+    const walkMin = isWalk ? round((dist / 5) * 60) : isAuto ? 0 : round(Math.min(12, dist * 4));
+    const transitMin = !hasTransit ? round((dist / speed) * 60) : round((dist / speed) * 60);
+    const totalMin = isAuto ? transitMin : walkMin + waitMin + transitMin + (isWalk ? 0 : 4);
     const depTime = new Date(start);
     const arrTime = addMin(depTime, totalMin);
-    const modeLabel = isWalk ? "Walk" : mode === "Bus" ? `MTC Bus ${routeNo(0)}` : mode === "Metro" ? `CMRL Metro ${metroLine(0)}` : `SR EMU`;
-    const agencyName = isWalk ? "" : mode === "Bus" ? "MTC" : mode === "Metro" ? "CMRL" : "SR";
-    const boardStopName = isWalk ? "Your Location" : getStopName(first.name, mode as "Metro" | "Train" | "Bus");
-    const routeType = isWalk ? null : mode === "Metro" ? 1 : mode === "Bus" ? 3 : 2;
-    const fareInfo = isWalk ? { base: 0, perKm: 0 } : FARE[mode];
+    const modeLabel = isWalk ? "Walk" : isAuto ? "Auto/Taxi" : mode === "Bus" ? `MTC Bus ${routeNo(0)}` : mode === "Metro" ? `CMRL Metro ${metroLine(0)}` : `SR EMU`;
+    const agencyName = hasTransit ? (mode === "Bus" ? "MTC" : mode === "Metro" ? "CMRL" : "SR") : "";
+    const boardStopName = hasTransit ? getStopNameOrFallback(first.name, mode as "Metro" | "Train" | "Bus") : "Your Location";
+    const routeType = hasTransit ? (mode === "Metro" ? 1 : mode === "Bus" ? 3 : 2) : null;
+    const fareInfo = hasTransit || isAuto ? FARE[mode] : { base: 0, perKm: 0 };
     const fare = isWalk ? 0 : round(fareInfo.base + fareInfo.perKm * dist);
     const leg: ItineraryLeg = {
       from_place_name: "Your Location",
@@ -574,34 +805,38 @@ function assemble(order: CombinationRequest["places"], req: CombinationRequest, 
       depart_at: iso(depTime),
       arrive_at: iso(arrTime),
       travel_duration_minutes: round(totalMin),
-      mode: isWalk ? "Walk" : `Walk+${mode}`,
+      mode: isWalk ? "Walk" : isAuto ? "Auto" : `Walk+${mode}`,
       mode_label: modeLabel,
       agency: agencyName,
-      transit_available: !isWalk && dist > 0.5,
-      walking_distance_km: round(isWalk ? dist : Math.min(1, dist * 0.15)),
+      transit_available: hasTransit && dist > 0.5,
+      walking_distance_km: round(isWalk ? dist : isAuto ? 0 : Math.min(1, dist * 0.15)),
       walking_minutes: walkMin,
-      route_name: isWalk ? null : mode === "Metro" ? metroLine(0) : mode === "Bus" ? routeNo(0) : "EMU",
+      route_name: hasTransit ? (mode === "Metro" ? metroLine(0) : mode === "Bus" ? routeNo(0) : "EMU") : null,
       route_type: routeType,
-      trip_id: isWalk ? null : "T0",
+      trip_id: hasTransit ? "T0" : null,
       service_id: weekend ? "weekend" : "weekday",
-      board_stop: isWalk ? null : "Your Location",
-      alight_stop: isWalk ? null : boardStopName,
+      board_stop: hasTransit ? "Your Location" : null,
+      alight_stop: hasTransit ? boardStopName : null,
       wait_time_minutes: waitMin,
-      transit_time_minutes: transitMin,
+      transit_time_minutes: hasTransit ? transitMin : 0,
       transfers: 0,
-      route_steps: !isWalk && dist > 0.5 ? [
+      route_steps: hasTransit && dist > 0.5 ? [
         { mode: "Walk", mode_label: "Walk", instruction: `Walk to ${boardStopName}`, from_name: "Your Location", to_name: boardStopName, distance_km: round(Math.min(0.5, dist * 0.15)), duration_minutes: walkMin },
-        { mode, mode_label: modeLabel, instruction: `Take ${modeLabel} from ${boardStopName} to ${first.name}`, from_name: boardStopName, to_name: `${first.name} ${mode === "Metro" ? "Metro Station" : mode === "Train" ? "Railway Station" : "Bus Stop"}`, route_name: mode === "Bus" ? routeNo(0) : mode === "Metro" ? "M1" : "EMU", route_type: routeType, agency: agencyName, board_stop: boardStopName, alight_stop: getStopName(first.name, mode as "Metro" | "Train" | "Bus"), duration_minutes: transitMin },
-        { mode: "Walk", mode_label: "Walk", instruction: `Walk to ${first.name}`, from_name: getStopName(first.name, mode as "Metro" | "Train" | "Bus"), to_name: first.name, distance_km: round(0.2), duration_minutes: round(3) },
+        { mode, mode_label: modeLabel, instruction: `Take ${modeLabel} from ${boardStopName} to ${first.name}`, from_name: boardStopName, to_name: getStopNameOrFallback(first.name, mode as "Metro" | "Train" | "Bus"), route_name: mode === "Bus" ? routeNo(0) : mode === "Metro" ? "M1" : "EMU", route_type: routeType, agency: agencyName, board_stop: boardStopName, alight_stop: getStopNameOrFallback(first.name, mode as "Metro" | "Train" | "Bus"), duration_minutes: transitMin },
+        { mode: "Walk", mode_label: "Walk", instruction: `Walk to ${first.name}`, from_name: getStopNameOrFallback(first.name, mode as "Metro" | "Train" | "Bus"), to_name: first.name, distance_km: round(0.2), duration_minutes: round(3) },
+      ] : isAuto ? [
+        { mode: "Auto", mode_label: "Auto/Taxi", instruction: `Take an auto/taxi to ${first.name} (${dist.toFixed(1)} km)`, from_name: "Your Location", to_name: first.name, distance_km: round(dist), duration_minutes: transitMin },
       ] : [
         { mode: "Walk", mode_label: "Walk", instruction: `Walk to ${first.name}`, from_name: "Your Location", to_name: first.name, distance_km: round(dist), duration_minutes: walkMin },
       ],
-      steps_summary: !isWalk && dist > 0.5
+      steps_summary: hasTransit && dist > 0.5
         ? [`Walk to ${boardStopName}`, `Take ${modeLabel} to ${first.name}`, `Walk to ${first.name}`]
+        : isAuto
+        ? [`Auto/taxi ${dist.toFixed(1)} km to ${first.name}`]
         : [`Walk ${dist.toFixed(1)} km to ${first.name}`],
       fare_total: fare,
-      fare_breakdown: isWalk ? {} : { base: fareInfo.base, distance: round(fareInfo.perKm * dist), total: fare },
-      fare_notes: isWalk ? ["Walking — no fare"] : [`Estimated ${mode} fare`],
+      fare_breakdown: !isWalk ? { base: fareInfo.base, distance: round(fareInfo.perKm * dist), total: fare } : {},
+      fare_notes: isWalk ? ["Walking — no fare"] : isAuto ? ["Estimated auto/taxi fare"] : [`Estimated ${mode} fare`],
     };
     legs.unshift(leg);
     places.unshift({
@@ -654,7 +889,10 @@ function assemble(order: CombinationRequest["places"], req: CombinationRequest, 
 
 export function mockCombination(req: CombinationRequest): CombinationResponse {
   const start = req.start_location ?? null;
-  const places = withNearbyFood(req);
+  // The frontend now always suggests a food stop rather than auto-inserting
+  // one (see app/combination/page.tsx) — this just builds from whatever the
+  // user actually selected.
+  const places = req.places;
   const optimal = nearestNeighbour(places, start);
   const byScore = places.slice().sort((a, b) => b.final_score - a.final_score);
   const itineraries: ItineraryResult[] = [];
@@ -667,47 +905,6 @@ export function mockCombination(req: CombinationRequest): CombinationResponse {
     departure_time: req.departure_time,
     itineraries: limited,
   };
-}
-
-// Mirrors the backend's "top up with nearby food" behaviour: if none of the
-// selected places is already a food stop, find the best-rated food seed
-// within range and fold it in, so an offline/mock plan still comes out as
-// sights + somewhere nearby to eat.
-function withNearbyFood(req: CombinationRequest): CombinationRequest["places"] {
-  const places = req.places;
-  if (req.include_nearby_food === false) return places;
-  if (places.some((p) => p.source === "food")) return places;
-  if (places.length === 0) return places;
-
-  const centroid = {
-    latitude: places.reduce((s, p) => s + p.latitude, 0) / places.length,
-    longitude: places.reduce((s, p) => s + p.longitude, 0) / places.length,
-  };
-  const radiusKm = req.food_search_radius_km ?? 2.5;
-  const existingIds = new Set(places.map((p) => p.id));
-
-  const nearbyFood = SEED_PLACES.filter((s) => s.source === "food" && !existingIds.has(s.id))
-    .map((s) => ({ seed: s, distance: haversineKm(centroid, { latitude: s.latitude, longitude: s.longitude }) }))
-    .filter((s) => s.distance <= radiusKm)
-    .sort((a, b) => (b.seed.rating ?? 0) - (a.seed.rating ?? 0) || a.distance - b.distance);
-
-  if (nearbyFood.length === 0) return places;
-
-  const best = nearbyFood[0].seed;
-  return [
-    ...places,
-    {
-      id: best.id,
-      name: best.name,
-      latitude: best.latitude,
-      longitude: best.longitude,
-      time_needed_min_hr: best.time_min ?? 1,
-      time_needed_max_hr: best.time_max ?? undefined,
-      final_score: best.rating ? best.rating / 5 : 0.7,
-      best_time_of_day: best.best_time_of_day ?? [],
-      source: "food" as const,
-    },
-  ];
 }
 
 // ── Routing ─────────────────────────────────────────────────────────────────
@@ -727,7 +924,9 @@ function walkStep(from: string, to: string, distKm: number, dep: Date): { step: 
 function transitStep(mode: string, routeType: number, routeName: string, from: string, to: string, distKm: number, dep: Date): { step: RouteStep; end: Date; wait: number } {
   const speed = MODE_SPEED_KMPH[mode] ?? 20;
   const weekend = dep.getDay() === 0 || dep.getDay() === 6;
-  const wait = mode === "Metro" ? (weekend ? 8 : 4) : mode === "Train" ? (weekend ? 11 : 6) : weekend ? 12 : 8;
+  // Bus gets a realistic minimum wait — a real bus almost never shows up
+  // on the scheduled minute, unlike metro/train on dedicated track.
+  const wait = mode === "Metro" ? 5 : mode === "Train" ? (weekend ? 11 : 6) : weekend ? 20 : 15;
   const ride = (distKm / speed) * 60;
   const board = addMin(dep, wait);
   const end = addMin(board, ride);
@@ -750,7 +949,7 @@ function transitStep(mode: string, routeType: number, routeName: string, from: s
   };
 }
 
-function buildRoute(kind: "metro" | "bus" | "train", req: RoutingRequest, distKm: number): RouteResult {
+function buildRoute(kind: "metro" | "bus" | "train", req: RoutingRequest, distKm: number): RouteResult | null {
   const dep = new Date(req.departure_time);
   const steps: RouteStep[] = [];
   const firstWalk = Math.min(0.7, distKm * 0.08);
@@ -765,41 +964,52 @@ function buildRoute(kind: "metro" | "bus" | "train", req: RoutingRequest, distKm
   const matchedPlace = SEED_PLACES.find((p) => dest.includes(p.name) || p.name.includes(dest.split(",")[0]));
   const placeName = matchedPlace?.name ?? dest.split(",")[0];
 
-  // Use real GTFS stop names
+  // Real GTFS stop names only — null means no curated stop is confidently
+  // known nearby, and this mode must be skipped rather than offered
+  // through a made-up station name (that used to read as, e.g., a "Metro
+  // Station" existing at a beach with no metro anywhere near it).
   const metroStation = getStopName(placeName, "Metro");
   const railwayStation = getStopName(placeName, "Train");
   const busStop = getStopName(placeName, "Bus");
   const busTerminal = `${placeName} Bus Terminal`;
   const junction = `${placeName} Junction`;
 
+  if (kind === "metro" && !metroStation) return null;
+  if (kind === "bus" && !busStop) return null;
+  if (kind === "train" && (!railwayStation || !busStop)) return null;
+
   if (kind === "metro") {
-    const w1 = walkStep("Your location", metroStation, firstWalk, cursor);
+    const metro = metroStation!; // guarded above
+    const w1 = walkStep("Your location", metro, firstWalk, cursor);
     steps.push(w1.step); walkMin += w1.step.duration_minutes ?? 0; cursor = w1.end;
-    const t = transitStep("Metro", 1, "M1", metroStation, metroStation, midDist, cursor);
+    const t = transitStep("Metro", 1, "M1", metro, metro, midDist, cursor);
     steps.push(t.step); transitMin += t.step.duration_minutes ?? 0; waitTotal += t.wait; cursor = t.end;
     modesUsed.push("Metro");
-    const w2 = walkStep(metroStation, "destination", lastWalk, cursor);
+    const w2 = walkStep(metro, "destination", lastWalk, cursor);
     steps.push(w2.step); walkMin += w2.step.duration_minutes ?? 0; cursor = w2.end;
   } else if (kind === "bus") {
-    const w1 = walkStep("Your location", busStop, firstWalk, cursor);
+    const bus = busStop!; // guarded above
+    const w1 = walkStep("Your location", bus, firstWalk, cursor);
     steps.push(w1.step); walkMin += w1.step.duration_minutes ?? 0; cursor = w1.end;
-    const t = transitStep("Bus", 3, "51C", busStop, busStop, midDist, cursor);
+    const t = transitStep("Bus", 3, "51C", bus, bus, midDist, cursor);
     steps.push(t.step); transitMin += t.step.duration_minutes ?? 0; waitTotal += t.wait; cursor = t.end;
     modesUsed.push("Bus");
-    const w2 = walkStep(busStop, "destination", lastWalk, cursor);
+    const w2 = walkStep(bus, "destination", lastWalk, cursor);
     steps.push(w2.step); walkMin += w2.step.duration_minutes ?? 0; cursor = w2.end;
   } else {
     // Train + Bus: Railway Station → Junction → Bus Terminal → Bus Stop
-    const w1 = walkStep("Your location", railwayStation, firstWalk, cursor);
+    const rail = railwayStation!; // guarded above
+    const bus = busStop!; // guarded above
+    const w1 = walkStep("Your location", rail, firstWalk, cursor);
     steps.push(w1.step); walkMin += w1.step.duration_minutes ?? 0; cursor = w1.end;
     const half = midDist * 0.6;
-    const t1 = transitStep("Train", 2, "EMU", railwayStation, junction, half, cursor);
+    const t1 = transitStep("Train", 2, "EMU", rail, junction, half, cursor);
     steps.push(t1.step); transitMin += t1.step.duration_minutes ?? 0; waitTotal += t1.wait; cursor = t1.end;
     const tw = walkStep(junction, busTerminal, 0.2, cursor);
     steps.push(tw.step); walkMin += tw.step.duration_minutes ?? 0; cursor = tw.end;
-    const t2 = transitStep("Bus", 3, "21G", busTerminal, busStop, midDist - half, cursor);
+    const t2 = transitStep("Bus", 3, "21G", busTerminal, bus, midDist - half, cursor);
     steps.push(t2.step); transitMin += t2.step.duration_minutes ?? 0; waitTotal += t2.wait; cursor = t2.end;
-    const w2 = walkStep(busStop, "destination", lastWalk, cursor);
+    const w2 = walkStep(bus, "destination", lastWalk, cursor);
     steps.push(w2.step); walkMin += w2.step.duration_minutes ?? 0; cursor = w2.end;
     transfers = 1;
     modesUsed.push("Train", "Bus");
@@ -820,11 +1030,16 @@ export function mockRouting(req: RoutingRequest): RoutingResponse {
     { latitude: req.origin.latitude, longitude: req.origin.longitude },
     { latitude: req.destination.latitude, longitude: req.destination.longitude },
   );
+  // A mode is dropped entirely (buildRoute returns null) when no real
+  // stop is confidently known for it — same as the live backend returning
+  // zero routes when it finds no nearby stops, rather than inventing one.
   const routes = [
     buildRoute("metro", req, distKm),
     buildRoute("bus", req, distKm),
     buildRoute("train", req, distKm),
-  ].sort((a, b) => (a.final_score ?? 0) - (b.final_score ?? 0));
+  ]
+    .filter((r): r is RouteResult => r !== null)
+    .sort((a, b) => (a.final_score ?? 0) - (b.final_score ?? 0));
   const limited = routes.slice(0, req.max_results ?? 10);
   return { total_routes: limited.length, routes: limited };
 }

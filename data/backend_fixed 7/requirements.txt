@@ -3,3 +3,4 @@ uvicorn[standard]>=0.30
 asyncpg>=0.29
 psycopg2-binary>=2.9
 pydantic>=2.7
+slowapi>=0.1.9

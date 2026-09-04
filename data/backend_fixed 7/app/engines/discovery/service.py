@@ -222,14 +222,16 @@ class DiscoveryService:
                 else None
             )
 
-            # ALL FIVE FACTORS HAVE EQUAL IMPORTANCE
-            final_score = (
-                i_score
-                + b_score
-                + t_score
-                + d_score
-                + r_score
-            ) / 5.0
+            # Average only over signals we actually have data for. POIs
+            # don't carry a rating in this schema (see rating_score's
+            # docstring) — an unrated place shouldn't be penalized relative
+            # to a rated one just because that data doesn't exist for its
+            # source, so it's excluded from the average rather than scored
+            # with a below-par placeholder.
+            score_components = [i_score, b_score, t_score, d_score]
+            if row["rating"] is not None:
+                score_components.append(r_score)
+            final_score = sum(score_components) / len(score_components)
 
             results.append(
                 PlaceResult(

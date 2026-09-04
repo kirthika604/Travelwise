@@ -42,6 +42,7 @@ export const VIBES: VibeDef[] = [
   { key: "Trendy", label: "Trendy", icon: "Sparkles", from: "#818CF8", to: "#D946EF" },
   { key: "Heritage", label: "Heritage", icon: "Gem", from: "#94A3B8", to: "#475569" },
   { key: "Offbeat", label: "Offbeat", icon: "Puzzle", from: "#22D3EE", to: "#6366F1" },
+  { key: "Entertainment", label: "Entertainment", icon: "Clapperboard", from: "#C026D3", to: "#6366F1" },
 ];
 
 export const VIBE_BY_KEY: Record<string, VibeDef> = Object.fromEntries(
@@ -71,7 +72,7 @@ export const TIMES_OF_DAY = [
 export interface ModeDef {
   label: string;
   color: string; // hex, used for map lines + timeline
-  icon: "walk" | "bus" | "metro" | "train" | "tram";
+  icon: "walk" | "bus" | "metro" | "train" | "tram" | "auto";
 }
 
 export const MODE_BY_ROUTE_TYPE: Record<number, ModeDef> = {
@@ -82,6 +83,12 @@ export const MODE_BY_ROUTE_TYPE: Record<number, ModeDef> = {
 };
 
 export const WALK_MODE: ModeDef = { label: "Walk", color: "#94A3B8", icon: "walk" };
+
+// A "last mile" leg the backend judged too far to walk (see
+// MAX_COMFORTABLE_WALK_KM in the routing engine) — an honest "you'll need
+// an auto/taxi here" instead of either pretending it's walkable or just
+// omitting the trip entirely when no stop sits within easy walking range.
+export const AUTO_MODE: ModeDef = { label: "Auto/Taxi", color: "#FBBF24", icon: "auto" };
 
 // Resolve a mode string ("Walk", "Bus", "Metro", "Train", "Walk+Bus"...) or a
 // GTFS route_type into display metadata. The *primary* (non-walk) mode wins.
@@ -94,6 +101,7 @@ export function modeMeta(mode: string, routeType?: number | null): ModeDef {
   if (m.includes("train") || m.includes("rail")) return MODE_BY_ROUTE_TYPE[2];
   if (m.includes("tram")) return MODE_BY_ROUTE_TYPE[0];
   if (m.includes("bus")) return MODE_BY_ROUTE_TYPE[3];
+  if (m.includes("auto") || m.includes("taxi")) return AUTO_MODE;
   return WALK_MODE;
 }
 

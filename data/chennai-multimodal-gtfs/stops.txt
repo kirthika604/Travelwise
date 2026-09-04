@@ -5623,17 +5623,54 @@ CMRL_G15,Ashok Nagar,13.037265,80.209551
 CMRL_G16,Ekkattuthangal,13.017128,80.205302
 CMRL_G17,Arignar Anna Alandur,13.004256,80.206136
 CMRL_G18,St. Thomas Mount,13.000739,80.197151
-TRAIN_AJJ,Arakkonam Junction,13.08191,79.66845
 TRAIN_AVD,Avadi,13.1182,80.1016
-TRAIN_CGL,Chengalpattu Junction,12.69306,79.98028
-TRAIN_CJ,Kanchipuram,12.8484,79.7051
 TRAIN_GPD,Gummidipoondi,13.4096,80.1236
 TRAIN_MMC,MGR Chennai Central Suburban Terminal (Moore Market Complex),13.0836,80.275
-TRAIN_MSB,Chennai Beach,13.09222,80.2919
 TRAIN_PTMS,Pattabiram West (Pattabiram Military Siding),13.1186,80.065
 TRAIN_SPE,Sullurupeta,13.6967,80.0182
-TRAIN_TBM,Tambaram,12.926056,80.117389
-TRAIN_TMLP,Tirumalpur,12.956634,79.673721
 TRAIN_TRL,Tiruvallur,13.11639,79.91444
 TRAIN_TRT,Tiruttani,13.1797,79.612
 TRAIN_VLCY,Velachery,12.967387,80.218965
+Chengalpattu Jn.,Chengalpattu Jn.,12.6933333333,79.9811111111
+Chennai Beach,Chennai Beach,13.0938888889,80.2925
+Chennai Egmore,Chennai Egmore,13.0777777778,80.2602777778
+Chennai Fort,Chennai Fort,13.0830555556,80.2825
+Chennai Park,Chennai Park,13.0805555556,80.2730555556
+Chepauk,Chepauk,13.0616666667,80.2802777778
+Chetpet,Chetpet,13.0741666667,80.2425
+Chintadripet,Chintadripet,13.0736111111,80.2744444444
+Chromepet,Chromepet,12.9516666667,80.1411111111
+Greenways Road,Greenways Road,13.0219444444,80.2527777778
+Guduvancheri,Guduvancheri,12.8455555556,80.0572222222
+Guindy,Guindy,13.0086111111,80.2127777778
+Indira Nagar,Indira Nagar,12.9969444444,80.2488888889
+Kasturba Nagar,Kasturba Nagar,13.0063888889,80.2477777778
+Kattangulathur,Kattangulathur,12.8058333333,80.0266666667
+Kodambakkam,Kodambakkam,13.0513888889,80.2305555556
+Kotturpuram,Kotturpuram,13.0138888889,80.2480555556
+Light House,Light House,13.0438888889,80.2761111111
+Mambalam,Mambalam,13.0375,80.2275
+Mandaveli,Mandaveli,13.0269444444,80.2602777778
+Maraimalai Nagar,Maraimalai Nagar,12.7966666667,80.0202777778
+Minambakkam,Minambakkam,12.9844444444,80.175
+Nungambakkam,Nungambakkam,13.0655555556,80.2327777778
+Palavanthangal,Palavanthangal,12.9902777778,80.1880555556
+Pallavaram,Pallavaram,12.9677777778,80.1522222222
+Paranur,Paranur,12.73,79.9838888889
+Park Town,Park Town,13.0797222222,80.2775
+Perungudi,Perungudi,12.975,80.2311111111
+Perungulathur,Perungulathur,12.905,80.095
+Potheri,Potheri,12.8213888889,80.0369444444
+Saidapet,Saidapet,13.0233333333,80.2238888889
+Singaperumal koil,Singaperumal koil,12.7616666667,80.0005555556
+St. Thomas Mount,St. Thomas Mount,12.9947222222,80.1994444444
+Tambaram,Tambaram,12.9258333333,80.1183333333
+Tambaram Sanatorium,Tambaram Sanatorium,12.9377777778,80.1313888889
+Tharamani,Tharamani,12.9786111111,80.2408333333
+Thirumayilai,Thirumayilai,13.0355555556,80.2675
+Thiruvanmiyur,Thiruvanmiyur,12.9880555556,80.2511111111
+Tirusulam,Tirusulam,12.9802777778,80.1658333333
+Tiruvellikeni,Tiruvellikeni,13.0552777778,80.2808333333
+Urappakkam,Urappakkam,12.8680555556,80.0725
+Vandalur,Vandalur,12.8911111111,80.0844444444
+Velachery,Velachery,12.9672222222,80.2194444444

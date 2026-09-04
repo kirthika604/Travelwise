@@ -1,4 +1,4 @@
-import { Bus, Footprints, TrainFront, TramFront } from "lucide-react";
+import { Bus, Car, Footprints, TrainFront, TramFront } from "lucide-react";
 import type { ModeDef } from "@/lib/constants";
 
 const ICONS = {
@@ -7,6 +7,7 @@ const ICONS = {
   metro: TrainFront,
   train: TrainFront,
   tram: TramFront,
+  auto: Car,
 } as const;
 
 export default function ModeIcon({

@@ -43,6 +43,15 @@ interface TripState {
   // selection for the combination engine
   selected: PlaceResult[];
 
+  // The Combination page's "nearby & feasible" suggestion panel — POIs and
+  // food, not food-only. Lives here (not page-local state) so it survives
+  // the round trip through "Add more" -> /discover -> back to /combination
+  // — that's a full unmount/remount of the page, which used to reset this
+  // to null and made untouched suggestions the user hadn't dismissed just
+  // vanish for no visible reason.
+  placeSuggestions: PlaceResult[];
+  suggestionsDismissed: boolean;
+
   chosenItinerary: ItineraryResult | null;
   routeContext: RouteContext;
 
@@ -52,6 +61,9 @@ interface TripState {
   toggleSelect: (place: PlaceResult) => void;
   isSelected: (id: number) => boolean;
   clearSelected: () => void;
+  setPlaceSuggestions: (places: PlaceResult[]) => void;
+  removePlaceSuggestion: (id: number) => void;
+  setSuggestionsDismissed: (v: boolean) => void;
   setChosenItinerary: (it: ItineraryResult | null) => void;
   setRouteContext: (ctx: RouteContext) => void;
   resetAll: () => void;
@@ -84,6 +96,8 @@ export const useTrip = create<TripState>()(
       locationEnabled: false,
       filters: DEFAULT_FILTERS,
       selected: [],
+      placeSuggestions: [],
+      suggestionsDismissed: false,
       chosenItinerary: null,
       routeContext: null,
 
@@ -105,6 +119,13 @@ export const useTrip = create<TripState>()(
 
       clearSelected: () => set({ selected: [] }),
 
+      setPlaceSuggestions: (places) => set({ placeSuggestions: places }),
+
+      removePlaceSuggestion: (id) =>
+        set({ placeSuggestions: get().placeSuggestions.filter((p) => p.id !== id) }),
+
+      setSuggestionsDismissed: (v) => set({ suggestionsDismissed: v }),
+
       setChosenItinerary: (it) => set({ chosenItinerary: it }),
 
       setRouteContext: (ctx) => set({ routeContext: ctx }),
@@ -116,6 +137,8 @@ export const useTrip = create<TripState>()(
           locationEnabled: false,
           filters: DEFAULT_FILTERS,
           selected: [],
+          placeSuggestions: [],
+          suggestionsDismissed: false,
           chosenItinerary: null,
           routeContext: null,
         }),

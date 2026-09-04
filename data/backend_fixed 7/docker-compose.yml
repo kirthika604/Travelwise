@@ -8,11 +8,16 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: chennai_explore
+      # Consumed by db/init/02_restrict_permissions.sh to create a
+      # least-privilege `app_readonly` role — override for anything beyond
+      # local dev.
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-app_readonly_dev_password}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./db/init/02_restrict_permissions.sh:/docker-entrypoint-initdb.d/02_restrict_permissions.sh
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -26,7 +31,10 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/chennai_explore
+      # Runs as app_readonly (SELECT-only, see db/init/02_restrict_permissions.sh)
+      # rather than the postgres superuser — every route in app/ only ever
+      # reads, so the app has no business holding write/DDL privileges.
+      DATABASE_URL: postgresql://app_readonly:${APP_DB_PASSWORD:-app_readonly_dev_password}@db:5432/chennai_explore
     ports:
       - "8000:8000"
 

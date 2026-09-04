@@ -34,6 +34,7 @@ export interface UnifiedRoute {
   transfers: number;
   walkingMin?: number | null;
   transitMin?: number | null;
+  waitMin?: number | null;
   modesUsed: string[];
   totalFare?: number | null;
   approxDistanceKm: number; // for the CO₂-vs-driving estimate
@@ -71,6 +72,7 @@ export function routeToUnified(r: RouteResult): UnifiedRoute {
     transfers: r.transfers,
     walkingMin: r.total_walking_minutes,
     transitMin: r.total_transit_minutes,
+    waitMin: r.total_wait_minutes ?? steps.reduce((sum, s) => sum + (s.waitMin ?? 0), 0),
     modesUsed: r.modes_used,
     totalFare: null,
     approxDistanceKm: steps.reduce((sum, s) => sum + (s.distanceKm ?? 0), 0),
@@ -107,6 +109,7 @@ export function itineraryToUnified(it: ItineraryResult): UnifiedRoute {
     transfers: it.legs.reduce((n, l) => n + (l.transfers || 0), 0),
     walkingMin: Math.round(it.total_walking_time_hr * 60),
     transitMin: Math.round(it.total_transit_time_hr * 60),
+    waitMin: steps.reduce((sum, s) => sum + (s.waitMin ?? 0), 0),
     modesUsed: Array.from(new Set(it.legs.map((l) => l.mode))),
     totalFare: it.total_fare,
     approxDistanceKm: pathDistanceKm(

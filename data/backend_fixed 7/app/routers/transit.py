@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from ..database import get_pool
 from ..schemas import NearbyStop, Departure
+from ..time_utils import parse_hms
 
 router = APIRouter(prefix="/transit", tags=["transit"])
 
@@ -60,7 +61,7 @@ async def departures(
     full multi-modal journey — not yet implemented as a single endpoint).
     """
     where = ["st.stop_id = $1", "st.departure_time >= $2::interval"]
-    args = [stop_id, after]
+    args = [stop_id, parse_hms(after)]
     if service_id:
         args.append(service_id)
         where.append(f"t.service_id = ${len(args)}")

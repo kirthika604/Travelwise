@@ -1,4 +1,4 @@
-import { Repeat, Footprints, Wallet, Check } from "lucide-react";
+import { Repeat, Footprints, Wallet, Check, Hourglass } from "lucide-react";
 import ModeIcon from "@/components/ui/ModeIcon";
 import type { UnifiedRoute } from "@/lib/route-view";
 import { formatDurationMin, formatTime, formatMoney } from "@/lib/geo";
@@ -69,6 +69,15 @@ export default function RouteOptionCard({
           {route.walkingMin != null && (
             <span className="inline-flex items-center gap-1">
               <Footprints size={12} /> {formatDurationMin(route.walkingMin)} walk
+            </span>
+          )}
+          {/* Real buffer time between legs — the more transfers, the more
+              this tends to add up, and two routes with the same transfer
+              count can still differ a lot here depending on how well the
+              connections line up. */}
+          {route.waitMin != null && route.waitMin >= 1 && (
+            <span className="inline-flex items-center gap-1 text-amber-400/90">
+              <Hourglass size={12} /> {formatDurationMin(route.waitMin)} waiting
             </span>
           )}
           {route.totalFare != null && route.totalFare > 0 && (

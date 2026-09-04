@@ -42,14 +42,14 @@ export default function TransitTimeline({ steps }: { steps: UnifiedStep[] }) {
                   </span>
                 )}
                 {!s.isWalk && s.distanceKm != null && s.distanceKm > 0 && (
-                  <span className="text-xs text-slate-500">· {formatDistance(s.distanceKm)}</span>
+                  <span className="text-xs text-slate-400">· {formatDistance(s.distanceKm)}</span>
                 )}
               </div>
 
               {/* from → to */}
               <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-300">
                 <span className="truncate">{s.fromName}</span>
-                <ArrowRight size={13} className="shrink-0 text-slate-500" />
+                <ArrowRight size={13} className="shrink-0 text-slate-400" />
                 <span className="truncate">{s.toName}</span>
               </p>
 

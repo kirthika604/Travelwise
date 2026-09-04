@@ -3,35 +3,24 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Persistent animated backdrop used on the Discover page.
- * Plays the discovery video once (no loop) — when it ends, fires onEnded
- * so the parent can reveal content. Until play starts the video sits on
- * its first frame as a frozen backdrop.
- *
- * Arriving here from the login page's sky video, this simply fades in at
- * its resting scale (no zoom/scale transform) — that fade plus the page
- * content's own delayed reveal is what makes the handoff read as one smooth
- * dissolve instead of a hard cut or a camera move.
+ * Persistent animated backdrop, used on Discover and Combination. Loops
+ * continuously as ambient motion — it never gates page content, so arriving
+ * on Discover straight from the login hand-off doesn't mean staring at a
+ * blank page until a clip finishes. `fadeIn` (set when arriving via the
+ * login intro) just fades the whole backdrop in at its resting scale.
  */
 export default function VideoBackground({
   className = "",
   fadeIn,
-  play = true,
-  onEnded,
 }: {
   className?: string;
   fadeIn?: boolean;
-  play?: boolean;
-  onEnded?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    const v = videoRef.current;
-    if (!v || !play) return;
-    v.play().catch(() => onEnded?.());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [play]);
+    videoRef.current?.play().catch(() => {});
+  }, []);
 
   return (
     <div
@@ -43,9 +32,9 @@ export default function VideoBackground({
         className="h-full w-full object-cover opacity-[0.55]"
         src="/videos/discovery-bg.mp4"
         muted
+        loop
         playsInline
         preload="auto"
-        onEnded={onEnded}
       />
       {/* Same scrim + glows as the rest of the app so contrast stays consistent */}
       <div className="absolute inset-0 bg-night-950/55" />

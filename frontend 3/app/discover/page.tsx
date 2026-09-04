@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Compass, SlidersHorizontal, MapPin, RotateCcw, ArrowUpDown, Sparkles, Flame } from "lucide-react";
+import { Compass, SlidersHorizontal, MapPin, RotateCcw, ArrowUpDown, Sparkles } from "lucide-react";
 import VideoBackground from "@/components/ui/VideoBackground";
 import Stepper from "@/components/ui/Stepper";
 import Loader from "@/components/ui/Loader";
@@ -13,9 +13,12 @@ import FindPlaceSheet from "@/components/discover/FindPlaceSheet";
 import PlaceDetailSheet from "@/components/discover/PlaceDetailSheet";
 import SelectionTray from "@/components/discover/SelectionTray";
 import AddMemorySheet from "@/components/explorer/AddMemorySheet";
+import LevelUpModal from "@/components/explorer/LevelUpModal";
+import PassportLink from "@/components/ui/PassportLink";
 import { discover, type Source } from "@/lib/api";
 import { useTrip, type Filters } from "@/lib/trip-store";
 import { useExplorer } from "@/lib/explorer-store";
+import { useRequireAuth } from "@/lib/use-require-auth";
 import { CHENNAI_CENTER } from "@/lib/constants";
 import type { PlaceResult } from "@/lib/types";
 
@@ -32,11 +35,11 @@ export default function DiscoverPage() {
 function DiscoverPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { loading: authLoading } = useRequireAuth();
   // Arriving straight from the login page's clouds zoom-through — run the
   // settle + card-reveal choreography instead of popping in immediately.
   const isIntro = searchParams.get("intro") === "1";
   const [showContent, setShowContent] = useState(!isIntro);
-  const [videoEnded, setVideoEnded] = useState(false);
   const location = useTrip((s) => s.location);
   const locationLabel = useTrip((s) => s.locationLabel);
   const filters = useTrip((s) => s.filters);
@@ -45,7 +48,6 @@ function DiscoverPageInner() {
   const isSelected = useTrip((s) => s.isSelected);
   const setRouteContext = useTrip((s) => s.setRouteContext);
   const setLocation = useTrip((s) => s.setLocation);
-  const explorerScore = useExplorer((s) => s.score);
   const hasVisited = useExplorer((s) => s.hasVisited);
 
   const [places, setPlaces] = useState<PlaceResult[]>([]);
@@ -88,22 +90,19 @@ function DiscoverPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origin.latitude, origin.longitude]);
 
-  // Intro choreography: when the discovery video ends, reveal cards with a
-  // smooth staggered entrance. Clean the ?intro=1 flag so a refresh doesn't
-  // replay the sequence.
+  // Intro choreography: reveal cards shortly after arriving from the login
+  // hand-off — the backdrop video loops continuously now, so there's nothing
+  // to wait on. Clean the ?intro=1 flag after so a refresh doesn't replay it.
   useEffect(() => {
     if (!isIntro) return;
-    if (videoEnded) {
-      setShowContent(true);
-      const cleanUrl = setTimeout(() => router.replace("/discover"), 1200);
-      return () => clearTimeout(cleanUrl);
-    }
+    const reveal = setTimeout(() => setShowContent(true), 350);
+    const cleanUrl = setTimeout(() => router.replace("/discover"), 900);
+    return () => {
+      clearTimeout(reveal);
+      clearTimeout(cleanUrl);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isIntro, videoEnded]);
-
-  const handleVideoEnded = () => {
-    setVideoEnded(true);
-  };
+  }, [isIntro]);
 
   const applyFilters = (f: Filters) => {
     setFilters(f);
@@ -142,10 +141,13 @@ function DiscoverPageInner() {
     }
   };
 
-  // Sort places by rating for ranked mode display
+  // Ranked mode should reflect the actual match (interest/budget/time/
+  // distance/rating blend the backend already sorted by) — sorting by raw
+  // rating instead ignored interest matching entirely and let any
+  // well-rated food place outrank a genuinely matching, unrated POI.
   const rankedPlaces = useMemo(() => {
     if (mode !== "ranked") return [];
-    return [...places].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+    return [...places].sort((a, b) => b.final_score - a.final_score);
   }, [places, mode]);
 
   const fitsTime = (p: PlaceResult) =>
@@ -153,9 +155,11 @@ function DiscoverPageInner() {
 
   const activeFilterCount = filters.interests.length + (filters.budget ? 1 : 0) + (filters.preferred_time ? 1 : 0);
 
+  if (authLoading) return <div className="min-h-screen bg-night-950" />;
+
   return (
     <main className="relative min-h-screen w-full overflow-hidden">
-      <VideoBackground fadeIn={isIntro} play={!isIntro || videoEnded === false} onEnded={handleVideoEnded} />
+      <VideoBackground fadeIn={isIntro} />
 
       <div
         className={`relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-4 pb-28 sm:px-6 ${
@@ -176,12 +180,7 @@ function DiscoverPageInner() {
           </div>
           <Stepper current={2} />
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => router.push("/passport")}
-              className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-xs text-slate-300 transition-colors hover:border-lagoon-400/40 hover:text-white"
-            >
-              <Flame size={12} className="text-lagoon-300" /> {explorerScore.score} pts
-            </button>
+            <PassportLink />
             <DataSourceBadge source={source} error={error} />
           </div>
         </header>
@@ -267,7 +266,7 @@ function DiscoverPageInner() {
 
         {/* not satisfied? hint → combination */}
         {!loading && places.length > 0 && showContent && (
-          <p className="mt-10 text-center text-sm text-slate-500 transition-opacity duration-700 delay-500">
+          <p className="mt-10 text-center text-sm text-slate-400 transition-opacity duration-700 delay-500">
             <Sparkles size={14} className="mb-0.5 mr-1 inline text-lagoon-300" />
             Add a few places you like to build a multi-stop day, or plan a route straight to one.
           </p>
@@ -308,6 +307,7 @@ function DiscoverPageInner() {
         open={!!memoryPlace}
         onClose={() => setMemoryPlace(null)}
       />
+      <LevelUpModal />
     </main>
   );
 }

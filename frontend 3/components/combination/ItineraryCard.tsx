@@ -85,7 +85,7 @@ export default function ItineraryCard({
                       : `Stay ~${formatHours(place.visit_duration_hr)}`}
                   </p>
                 </div>
-                <span className="shrink-0 text-xs text-slate-500">{formatHours(place.visit_duration_hr)}</span>
+                <span className="shrink-0 text-xs text-slate-400">{formatHours(place.visit_duration_hr)}</span>
               </div>
 
               {/* connecting leg */}
@@ -96,9 +96,9 @@ export default function ItineraryCard({
                 >
                   <ModeIcon mode={modeMeta(leg.mode, leg.route_type)} size={14} />
                   <span className="text-slate-300">{leg.mode_label || leg.mode}</span>
-                  {leg.route_name && <span className="text-slate-500">· {leg.route_name}</span>}
-                  <span className="text-slate-500">· {formatDurationMin(leg.travel_duration_minutes)}</span>
-                  {leg.fare_total > 0 && <span className="text-slate-500">· {formatMoney(leg.fare_total)}</span>}
+                  {leg.route_name && <span className="text-slate-400">· {leg.route_name}</span>}
+                  <span className="text-slate-400">· {formatDurationMin(leg.travel_duration_minutes)}</span>
+                  {leg.fare_total > 0 && <span className="text-slate-400">· {formatMoney(leg.fare_total)}</span>}
                 </div>
               )}
             </li>
@@ -144,7 +144,7 @@ function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; va
     <div className="rounded-xl bg-white/[0.03] py-2">
       <div className="mb-0.5 flex justify-center text-lagoon-300">{icon}</div>
       <p className="text-xs font-medium text-white">{value}</p>
-      <p className="text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="text-[10px] uppercase tracking-wide text-slate-400">{label}</p>
     </div>
   );
 }

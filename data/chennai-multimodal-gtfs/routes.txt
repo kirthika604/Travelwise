@@ -4613,7 +4613,10 @@ route_id,route_short_name,route_long_name,route_type,agency_id
 CMRL_1,Blue Line,Blue Line — Wimco Nagar Depot ↔ Airport,1,CMRL
 CMRL_2,Green Line,Green Line — MGR Central ↔ St. Thomas Mount,1,CMRL
 CMRL_3,Inter-Corridor,Inter-Corridor — MGR Central ↔ Airport,1,CMRL
-TRAIN_MASAJJ,MAS-AJJ,Chennai Central/Beach/MMC – Arakkonam (West Line) Suburban,2,SR
-TRAIN_MASGPD,MAS-GPD,Chennai – Gummidipoondi (North Line) Suburban,2,SR
-TRAIN_MSBCGL,MSB-CGL-CJ-TMLP,Chennai Beach – Chengalpattu – Kanchipuram – Tirumalpur (South-West Line) Suburban,2,SR
-TRAIN_MRTS,MRTS,Chennai Beach – Velachery MRTS,2,SR
+MSB-VLCY,MSB-VLCY,Chennai Beach – Velachery,2,SR
+MSB-TBM,MSB-TBM,Chennai Beach – Tambaram,2,SR
+TBM-CGL,TBM-CGL,Tambaram – Chengalpattu,2,SR
+MSB-CGL,MSB-CGL,Chennai Beach – Chengalpattu,2,SR
+CGL-TMLP,CGL-TMLP,Chengalpattu – Thirumalpur,2,SR
+MASMSB-TRT,MASMSB-TRT,Chennai Beach/Chennai Central – Tiruttani,2,SR
+MAS-SPE,MAS-SPE,Chennai Beach/Chennai Central – Sullurupetta,2,SR

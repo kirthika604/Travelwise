@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass
 
 from ..routing.transit_repository import TransitRepository
+from ...time_utils import time_of_day
 
 
 # ──────────────────────────────────────────────
@@ -25,6 +26,28 @@ from ..routing.transit_repository import TransitRepository
 # ──────────────────────────────────────────────
 
 WALKING_SPEED_KMPH = 5.0
+# Same values as the routing engine's MAX_COMFORTABLE_WALK_KM /
+# AUTO_SPEED_KMPH (app/engines/routing/multimodal_router.py) — kept as a
+# local copy rather than a shared import, since that module already
+# imports from this package (haversine_distance_km) and importing back
+# here would create a circular import.
+MAX_COMFORTABLE_WALK_KM = 1.2
+AUTO_SPEED_KMPH = 20.0
+# Same value and reasoning as the routing engine's MIN_BUS_WAIT_MINUTES
+# (app/engines/routing/multimodal_router.py) — a local copy for the same
+# reason as the other constants above (avoiding a circular import).
+MIN_BUS_WAIT_MINUTES = 15.0
+# Same value and reasoning as the routing engine's METRO_WAIT_MINUTES —
+# metro runs frequently/predictably enough on dedicated track that a flat
+# assumed wait is simpler and just as realistic as the exact schedule gap.
+METRO_WAIT_MINUTES = 5.0
+# Itineraries here often include genuinely remote day-trip destinations
+# (beaches, forts, sanctuaries well outside the city) — wider than the
+# routing engine's equivalent fallback (5km) because "no stop within 1km"
+# was previously treated as "no transit exists at all", skipping straight
+# to a many-hour walk/auto estimate for the ENTIRE origin-to-destination
+# distance instead of ever attempting a partial transit connection.
+FALLBACK_STOP_SEARCH_RADIUS_KM = 15.0
 
 # GTFS route_type → (Mode Name, Display Label, Color, Agency)
 GTFS_ROUTE_MODES = {
@@ -124,6 +147,21 @@ class TransitAvailabilityChecker:
 
     def __init__(self, repository: TransitRepository):
         self.repository = repository
+
+    @staticmethod
+    def _walk_or_auto(distance_km: float) -> tuple[str, str, float]:
+        """
+        Decide how a "last mile" leg (user's exact location <-> the transit
+        stop actually used) should be labeled and how long it takes.
+        Past MAX_COMFORTABLE_WALK_KM this is an auto/taxi leg, not a walk —
+        shared by every place in this file that builds one of these legs,
+        so a stop found via the widened fallback search (which can be well
+        outside normal walking range) is never presented as if it were a
+        short walk.
+        """
+        if distance_km > MAX_COMFORTABLE_WALK_KM:
+            return "Auto", "Auto/Taxi", (distance_km / AUTO_SPEED_KMPH) * 60
+        return "Walk", "Walk", (distance_km / WALKING_SPEED_KMPH) * 60
 
     def _get_mode_info(self, route_type: int | None) -> dict:
         """
@@ -231,7 +269,20 @@ class TransitAvailabilityChecker:
             radius_km=max_walking_distance_km,
             limit=15,
         )
-
+        # Nothing within comfortable walking distance doesn't mean no
+        # transit exists at all — widen the search just to locate the
+        # nearest usable stop. _walk_or_auto() relabels the resulting leg
+        # as Auto/Taxi once it's past MAX_COMFORTABLE_WALK_KM, so this
+        # surfaces "transit gets you most of the way, then an auto for the
+        # rest" instead of skipping transit entirely for anywhere without
+        # a stop right on top of it.
+        if not origin_stops:
+            origin_stops = await self.repository.get_nearby_stops(
+                latitude=from_lat,
+                longitude=from_lon,
+                radius_km=FALLBACK_STOP_SEARCH_RADIUS_KM,
+                limit=10,
+            )
         if not origin_stops:
             return None
 
@@ -242,7 +293,13 @@ class TransitAvailabilityChecker:
             radius_km=max_walking_distance_km,
             limit=15,
         )
-
+        if not dest_stops:
+            dest_stops = await self.repository.get_nearby_stops(
+                latitude=to_lat,
+                longitude=to_lon,
+                radius_km=FALLBACK_STOP_SEARCH_RADIUS_KM,
+                limit=10,
+            )
         if not dest_stops:
             return None
 
@@ -402,7 +459,7 @@ class TransitAvailabilityChecker:
               AND r.route_type = $4
               AND t.service_id = ANY($5::text[])
             ORDER BY st_o.departure_time ASC
-            LIMIT 3
+            LIMIT 5
         """
 
         async with self.repository.pool.acquire() as connection:
@@ -410,17 +467,25 @@ class TransitAvailabilityChecker:
                 query,
                 origin_stop_ids,
                 dest_stop_ids,
-                depart_at.strftime("%H:%M:%S"),
+                time_of_day(depart_at),
                 preferred_route_type,
                 service_ids,
             )
 
-        if not rows:
-            return None
+        # Try each candidate departure in order, not just the earliest one
+        # — the earliest can fail the realistic-wait-buffer check below
+        # (added for bus specifically) even when a slightly later, still
+        # perfectly fine departure would pass. Only trying rows[0] here
+        # used to mean a single narrow rejection gave up on this mode
+        # entirely instead of considering the next real option.
+        for row in rows:
+            result = self._build_connection_from_row(
+                row, origin_stops, dest_stops, depart_at
+            )
+            if result:
+                return result
 
-        return self._build_connection_from_row(
-            rows[0], origin_stops, dest_stops, depart_at
-        )
+        return None
 
     # ──────────────────────────────────────────
     # Any direct connection search
@@ -478,7 +543,7 @@ class TransitAvailabilityChecker:
                 query,
                 origin_stop_ids,
                 dest_stop_ids,
-                depart_at.strftime("%H:%M:%S"),
+                time_of_day(depart_at),
                 service_ids,
             )
 
@@ -526,22 +591,50 @@ class TransitAvailabilityChecker:
         origin_walk_km = float(origin_stop["distance_km"]) if origin_stop else 0.3
         dest_walk_km = float(dest_stop["distance_km"]) if dest_stop else 0.3
 
-        origin_walk_min = (origin_walk_km / WALKING_SPEED_KMPH) * 60
-        dest_walk_min = (dest_walk_km / WALKING_SPEED_KMPH) * 60
+        origin_leg_mode, origin_leg_label, origin_walk_min = self._walk_or_auto(origin_walk_km)
+        dest_leg_mode, dest_leg_label, dest_walk_min = self._walk_or_auto(dest_walk_km)
 
-        # User needs to walk to origin stop before departure
+        route_type = row["route_type"]
+
+        # Feasibility uses the zero-buffer timing: can the rider physically
+        # be at the stop by dep_time, given they can't leave before
+        # depart_at? This must NOT be tightened by the realistic-wait floor
+        # below, or that floor could disqualify every one of the (only 5)
+        # earliest fetched departures at once — each would need an even
+        # earlier "ideal" leave time than depart_at itself, and a genuinely
+        # catchable bus would get rejected outright instead of just
+        # reported with a longer wait.
         user_depart = dep_time - timedelta(minutes=origin_walk_min)
+        if user_depart < depart_at:
+            user_depart = depart_at
         user_arrive = arr_time + timedelta(minutes=dest_walk_min)
 
-        # Check if user can make it (can't depart before requested time)
-        if user_depart < depart_at:
-            return None
+        # Reported wait/duration is separate: a real bus almost never shows
+        # up on the scheduled minute (traffic, driver behavior), so the
+        # schedule's raw gap reads as far more reliable than city bus
+        # service actually is — pad it up to a realistic minimum without
+        # touching the feasibility check above. Train runs on dedicated
+        # track/right-of-way and is close enough to on-time that its own
+        # schedule is trustworthy, so this leaves it alone; bus gets a
+        # floor, metro gets a flat assumed value (frequent/predictable
+        # enough that the exact schedule gap isn't worth trusting either
+        # way — could be shorter OR longer than reality).
+        raw_wait_min = max(
+            0.0, (dep_time - (user_depart + timedelta(minutes=origin_walk_min))).total_seconds() / 60
+        )
+        if route_type == 3 and raw_wait_min < MIN_BUS_WAIT_MINUTES:
+            user_arrive += timedelta(minutes=MIN_BUS_WAIT_MINUTES - raw_wait_min)
+            wait_min_reported = MIN_BUS_WAIT_MINUTES
+        elif route_type == 1:
+            user_arrive += timedelta(minutes=METRO_WAIT_MINUTES - raw_wait_min)
+            wait_min_reported = METRO_WAIT_MINUTES
+        else:
+            wait_min_reported = raw_wait_min
 
         transit_duration = (arr_time - dep_time).total_seconds() / 60
         total_duration = (user_arrive - user_depart).total_seconds() / 60
 
         # Get mode info
-        route_type = row["route_type"]
         mode_info = self._get_mode_info(route_type)
         mode_name = mode_info["mode"]
         agency = mode_info["agency"]
@@ -557,17 +650,21 @@ class TransitAvailabilityChecker:
 
         # Build steps
         steps = [
-            f"Walk {origin_walk_min:.0f} min to {row['origin_stop_name']}",
+            f"{origin_leg_label} {origin_walk_min:.0f} min to {row['origin_stop_name']}",
             f"Take {mode_label} from {row['origin_stop_name']} to {row['dest_stop_name']}",
-            f"Walk {dest_walk_min:.0f} min to destination",
+            f"{dest_leg_label} {dest_walk_min:.0f} min to destination",
         ]
 
         # Build route steps
         route_steps = [
             {
-                "mode": "Walk",
-                "mode_label": "Walk",
-                "instruction": f"Walk to {row['origin_stop_name']}",
+                "mode": origin_leg_mode,
+                "mode_label": origin_leg_label,
+                "instruction": (
+                    f"Too far to walk ({origin_walk_km:.1f} km) — take an auto/taxi to {row['origin_stop_name']}"
+                    if origin_leg_mode == "Auto"
+                    else f"Walk to {row['origin_stop_name']}"
+                ),
                 "from_name": "Your Location",
                 "to_name": row["origin_stop_name"],
                 "duration_minutes": round(origin_walk_min, 1),
@@ -587,13 +684,18 @@ class TransitAvailabilityChecker:
                 "agency": agency,
                 "trip_id": row["trip_id"],
                 "service_id": row["service_id"],
+                "wait_time_minutes": round(wait_min_reported, 1) if wait_min_reported else None,
                 "board_stop": row["origin_stop_name"],
                 "alight_stop": row["dest_stop_name"],
             },
             {
-                "mode": "Walk",
-                "mode_label": "Walk",
-                "instruction": f"Walk to destination",
+                "mode": dest_leg_mode,
+                "mode_label": dest_leg_label,
+                "instruction": (
+                    f"Too far to walk ({dest_walk_km:.1f} km) — take an auto/taxi to destination"
+                    if dest_leg_mode == "Auto"
+                    else "Walk to destination"
+                ),
                 "from_name": row["dest_stop_name"],
                 "to_name": "Your Destination",
                 "duration_minutes": round(dest_walk_min, 1),
@@ -605,11 +707,15 @@ class TransitAvailabilityChecker:
             depart_at=user_depart,
             arrive_at=user_arrive,
             travel_duration_minutes=round(total_duration, 1),
-            mode=f"Walk+{mode_name}+Walk",
+            mode=f"{origin_leg_mode}+{mode_name}+{dest_leg_mode}",
             mode_label=mode_label,
             agency=agency,
             walking_distance_km=round(origin_walk_km + dest_walk_km, 2),
-            walking_minutes=round(origin_walk_min + dest_walk_min, 1),
+            walking_minutes=round(
+                (origin_walk_min if origin_leg_mode == "Walk" else 0)
+                + (dest_walk_min if dest_leg_mode == "Walk" else 0),
+                1,
+            ),
             transit_available=True,
             route_name=str(route_name),
             route_type=route_type,
@@ -617,9 +723,7 @@ class TransitAvailabilityChecker:
             service_id=row["service_id"],
             board_stop=row["origin_stop_name"],
             alight_stop=row["dest_stop_name"],
-            wait_time_minutes=round(
-                (dep_time - user_depart).total_seconds() / 60, 1
-            ),
+            wait_time_minutes=round(wait_min_reported, 1),
             transit_time_minutes=round(transit_duration, 1),
             transfers=0,
             steps_summary=steps,
@@ -645,33 +749,52 @@ class TransitAvailabilityChecker:
         origin_stop_ids = [row["stop_id"] for row in origin_stops]
         dest_stop_ids = [row["stop_id"] for row in dest_stops]
 
-        # Find transfer stops (stops served by multiple routes)
+        # Real 2-vehicle transfer: ride leg1 from an origin stop to a
+        # transfer stop, then board a genuinely DIFFERENT trip (leg2) at
+        # that same stop no earlier than leg1's arrival there, then ride
+        # to a destination stop. The previous version of this query joined
+        # dt.trip_id = ts.transfer_trip_id — the "onward" leg was actually
+        # the SAME trip as leg1, so it never modeled a real transfer at
+        # all, and had no constraint tying leg2's departure to when the
+        # rider would actually arrive at the transfer stop — it could pick
+        # a leg2 that had already left, or hadn't started running yet,
+        # producing temporally impossible (even negative-duration)
+        # connections.
         query = """
-            WITH origin_trips AS (
-                SELECT DISTINCT st.trip_id
+            WITH leg1 AS (
+                SELECT st.trip_id, st.stop_id AS board_stop_id, st.stop_sequence AS board_seq
                 FROM transit.stop_times st
+                JOIN transit.trips t ON t.trip_id = st.trip_id
                 WHERE st.stop_id = ANY($1::text[])
                   AND st.departure_time >= $2::interval
+                  AND t.service_id = ANY($4::text[])
             ),
-            dest_trips AS (
-                SELECT DISTINCT st.trip_id
-                FROM transit.stop_times st
-                WHERE st.stop_id = ANY($3::text[])
-            ),
-            transfer_stops AS (
+            leg1_transfer AS (
                 SELECT
-                    st2.stop_id,
-                    st2.trip_id AS transfer_trip_id,
-                    st2.departure_time AS transfer_departure,
-                    st2.stop_sequence AS transfer_seq
-                FROM transit.stop_times st2
-                JOIN origin_trips ot ON ot.trip_id = st2.trip_id
-                WHERE st2.stop_id NOT IN (SELECT UNNEST($1::text[]))
+                    l1.trip_id AS leg1_trip_id,
+                    l1.board_stop_id,
+                    st.stop_id AS transfer_stop_id,
+                    st.arrival_time AS transfer_arrival,
+                    st.stop_sequence AS transfer_seq
+                FROM leg1 l1
+                JOIN transit.stop_times st
+                    ON st.trip_id = l1.trip_id
+                    AND st.stop_sequence > l1.board_seq
+                WHERE st.stop_id <> ALL($1::text[])
+            ),
+            leg2 AS (
+                SELECT st.trip_id, st.stop_id AS transfer_stop_id,
+                       st.departure_time AS leg2_departure, st.stop_sequence AS leg2_board_seq
+                FROM transit.stop_times st
+                JOIN transit.trips t ON t.trip_id = st.trip_id
+                WHERE t.service_id = ANY($4::text[])
             )
             SELECT
-                ts.stop_id AS transfer_stop_id,
+                lt.transfer_stop_id,
                 s.stop_name AS transfer_stop_name,
-                ts.transfer_departure,
+                lt.board_stop_id AS origin_stop_id,
+                lt.transfer_arrival,
+                l2.leg2_departure AS transfer_departure,
                 t.trip_id AS onward_trip_id,
                 rt.route_short_name AS onward_route,
                 rt.route_long_name AS onward_route_long,
@@ -680,19 +803,20 @@ class TransitAvailabilityChecker:
                 ds.stop_name AS dest_stop_name,
                 dt.arrival_time AS dest_arrival,
                 t.service_id
-            FROM transfer_stops ts
-            JOIN transit.stops s ON s.stop_id = ts.stop_id
+            FROM leg1_transfer lt
+            JOIN leg2 l2
+                ON l2.transfer_stop_id = lt.transfer_stop_id
+                AND l2.leg2_departure >= lt.transfer_arrival
+                AND l2.trip_id <> lt.leg1_trip_id
             JOIN transit.stop_times dt
-                ON dt.trip_id = ts.transfer_trip_id
-                AND dt.stop_sequence > ts.transfer_seq
+                ON dt.trip_id = l2.trip_id
+                AND dt.stop_sequence > l2.leg2_board_seq
                 AND dt.stop_id = ANY($3::text[])
-            JOIN transit.trips t ON t.trip_id = dt.trip_id
+            JOIN transit.trips t ON t.trip_id = l2.trip_id
             JOIN transit.routes rt ON rt.route_id = t.route_id
+            JOIN transit.stops s ON s.stop_id = lt.transfer_stop_id
             JOIN transit.stops ds ON ds.stop_id = dt.stop_id
-            JOIN transit.trips t2 ON t2.trip_id = ts.transfer_trip_id
-            WHERE t2.service_id = ANY($4::text[])
-              AND t.service_id = ANY($4::text[])
-            ORDER BY ts.transfer_departure ASC
+            ORDER BY dt.arrival_time ASC
             LIMIT 5
         """
 
@@ -700,18 +824,27 @@ class TransitAvailabilityChecker:
             rows = await connection.fetch(
                 query,
                 origin_stop_ids,
-                depart_at.strftime("%H:%M:%S"),
+                time_of_day(depart_at),
                 dest_stop_ids,
                 service_ids,
             )
 
-        if not rows:
-            return None
+        # Try each candidate in order, not just the earliest — a candidate
+        # can fail the sanity check below (or the realistic-wait clamp) and
+        # a later one still be perfectly valid, same reasoning as the
+        # direct-connection search above.
+        for row in rows:
+            result = self._build_transfer_connection_from_row(
+                row, origin_stops, dest_stops, depart_at
+            )
+            if result:
+                return result
 
-        # For now, return the first valid connection
-        # A full implementation would trace the complete journey
-        row = rows[0]
+        return None
 
+    def _build_transfer_connection_from_row(
+        self, row, origin_stops: list, dest_stops: list, depart_at: datetime
+    ) -> TransitConnection | None:
         transfer_depart = self._parse_time(
             row["transfer_departure"], depart_at.date()
         )
@@ -720,8 +853,11 @@ class TransitAvailabilityChecker:
         if dest_arrive <= transfer_depart:
             dest_arrive += timedelta(days=1)
 
+        # The stop leg1 was actually boarded from, per the query — not an
+        # arbitrary guess at "the first nearby stop" (the query now
+        # returns which one leg1 genuinely used).
         origin_stop = next(
-            (s for s in origin_stops if True),  # Use first origin stop
+            (s for s in origin_stops if s["stop_id"] == row["origin_stop_id"]),
             None,
         )
         dest_stop = next(
@@ -732,16 +868,30 @@ class TransitAvailabilityChecker:
         origin_walk_km = float(origin_stop["distance_km"]) if origin_stop else 0.3
         dest_walk_km = float(dest_stop["distance_km"]) if dest_stop else 0.3
 
-        origin_walk_min = (origin_walk_km / WALKING_SPEED_KMPH) * 60
-        dest_walk_min = (dest_walk_km / WALKING_SPEED_KMPH) * 60
+        origin_leg_mode, origin_leg_label, origin_walk_min = self._walk_or_auto(origin_walk_km)
+        dest_leg_mode, dest_leg_label, dest_walk_min = self._walk_or_auto(dest_walk_km)
 
-        user_depart = transfer_depart - timedelta(minutes=origin_walk_min + 10)  # Buffer
+        # Same realistic-buffer reasoning as the direct-connection builder
+        # above — this already had a flat 10-min fudge factor for the
+        # first leg's board/travel time (this simplified transfer search
+        # doesn't model that leg's own real schedule), bumped to match
+        # MIN_BUS_WAIT_MINUTES for consistency.
+        user_depart = transfer_depart - timedelta(minutes=origin_walk_min + MIN_BUS_WAIT_MINUTES)
         user_arrive = dest_arrive + timedelta(minutes=dest_walk_min)
 
         if user_depart < depart_at:
             user_depart = depart_at
 
         total_duration = (user_arrive - user_depart).total_seconds() / 60
+
+        # Sanity check — the onward (transfer) leg's departure time isn't
+        # actually constrained by this query to be after the rider would
+        # arrive at the transfer stop (unlike the origin leg, which is),
+        # so it can pick a temporally-impossible pairing and yield a
+        # negative or wildly implausible total duration. Reject rather
+        # than surface a broken "-30 minute" journey.
+        if total_duration <= 0 or total_duration > 300:
+            return None
 
         onward_route_type = row["onward_route_type"]
         mode_info = self._get_mode_info(onward_route_type)
@@ -754,16 +904,20 @@ class TransitAvailabilityChecker:
         )
 
         steps = [
-            f"Walk to transfer stop",
+            f"{origin_leg_label} to transfer stop",
             f"Take {mode_label} to {row['dest_stop_name']}",
-            f"Walk to destination",
+            f"{dest_leg_label} to destination",
         ]
 
         route_steps = [
             {
-                "mode": "Walk",
-                "mode_label": "Walk",
-                "instruction": f"Walk to transfer stop",
+                "mode": origin_leg_mode,
+                "mode_label": origin_leg_label,
+                "instruction": (
+                    f"Too far to walk ({origin_walk_km:.1f} km) — take an auto/taxi to transfer stop"
+                    if origin_leg_mode == "Auto"
+                    else "Walk to transfer stop"
+                ),
                 "from_name": "Your Location",
                 "to_name": row["transfer_stop_name"],
                 "duration_minutes": round(origin_walk_min, 1),
@@ -789,9 +943,13 @@ class TransitAvailabilityChecker:
                 "alight_stop": row["dest_stop_name"],
             },
             {
-                "mode": "Walk",
-                "mode_label": "Walk",
-                "instruction": f"Walk to destination",
+                "mode": dest_leg_mode,
+                "mode_label": dest_leg_label,
+                "instruction": (
+                    f"Too far to walk ({dest_walk_km:.1f} km) — take an auto/taxi to destination"
+                    if dest_leg_mode == "Auto"
+                    else "Walk to destination"
+                ),
                 "from_name": row["dest_stop_name"],
                 "to_name": "Your Destination",
                 "duration_minutes": round(dest_walk_min, 1),
@@ -803,11 +961,15 @@ class TransitAvailabilityChecker:
             depart_at=user_depart,
             arrive_at=user_arrive,
             travel_duration_minutes=round(total_duration, 1),
-            mode=f"Walk+{mode_name}+Walk",
+            mode=f"{origin_leg_mode}+{mode_name}+{dest_leg_mode}",
             mode_label=mode_label,
             agency=agency,
             walking_distance_km=round(origin_walk_km + dest_walk_km, 2),
-            walking_minutes=round(origin_walk_min + dest_walk_min, 1),
+            walking_minutes=round(
+                (origin_walk_min if origin_leg_mode == "Walk" else 0)
+                + (dest_walk_min if dest_leg_mode == "Walk" else 0),
+                1,
+            ),
             transit_available=True,
             route_name=onward_route,
             route_type=onward_route_type,
@@ -815,7 +977,15 @@ class TransitAvailabilityChecker:
             service_id=row["service_id"],
             board_stop=row["transfer_stop_name"],
             alight_stop=row["dest_stop_name"],
-            wait_time_minutes=10.0,  # Estimated transfer time
+            # Floored, not trusted raw — this function's own "use first
+            # origin stop" shortcut (see above) can make the raw
+            # transfer_depart - user_depart gap an unreliable number for a
+            # specific candidate row, and a negative or implausibly small
+            # wait is a worse user-facing bug than an approximate one.
+            wait_time_minutes=max(
+                MIN_BUS_WAIT_MINUTES,
+                round((transfer_depart - user_depart).total_seconds() / 60, 1),
+            ),
             transit_time_minutes=round(
                 (dest_arrive - transfer_depart).total_seconds() / 60, 1
             ),
@@ -852,19 +1022,33 @@ class TransitAvailabilityChecker:
         c = 2 * atan2(sqrt(a), sqrt(1 - a))
         distance_km = 6371.0 * c
 
-        walk_minutes = (distance_km / walk_speed_kmph) * 60
-        arrive_at = depart_at + timedelta(minutes=walk_minutes)
+        # Past MAX_COMFORTABLE_WALK_KM this stops being a "walk 7 hours to
+        # your destination" situation and becomes an auto/taxi one — same
+        # threshold and reasoning as the routing engine's equivalent fix
+        # (a straight-line distance with no real transit connection found
+        # was being presented as walkable no matter how far it actually was).
+        too_far_to_walk = distance_km > MAX_COMFORTABLE_WALK_KM
+        speed = AUTO_SPEED_KMPH if too_far_to_walk else walk_speed_kmph
+        travel_minutes = (distance_km / speed) * 60
+        arrive_at = depart_at + timedelta(minutes=travel_minutes)
 
-        steps = [f"Walk {walk_minutes:.0f} min ({distance_km:.1f} km) to destination"]
+        mode = "Auto" if too_far_to_walk else "Walk"
+        mode_label = "Auto/Taxi" if too_far_to_walk else "Walk"
+        instruction = (
+            f"Too far to walk ({distance_km:.1f} km) — take an auto/taxi to destination"
+            if too_far_to_walk
+            else f"Walk {travel_minutes:.0f} min to destination"
+        )
+        steps = [f"{instruction} ({distance_km:.1f} km)" if too_far_to_walk else f"Walk {travel_minutes:.0f} min ({distance_km:.1f} km) to destination"]
 
         route_steps = [
             {
-                "mode": "Walk",
-                "mode_label": "Walk",
-                "instruction": f"Walk {walk_minutes:.0f} min to destination",
+                "mode": mode,
+                "mode_label": mode_label,
+                "instruction": instruction,
                 "from_name": "Your Location",
                 "to_name": "Your Destination",
-                "duration_minutes": round(walk_minutes, 1),
+                "duration_minutes": round(travel_minutes, 1),
                 "distance_km": round(distance_km, 2),
             }
         ]
@@ -872,12 +1056,12 @@ class TransitAvailabilityChecker:
         return TransitConnection(
             depart_at=depart_at,
             arrive_at=arrive_at,
-            travel_duration_minutes=round(walk_minutes, 1),
-            mode="Walk",
-            mode_label="Walk",
+            travel_duration_minutes=round(travel_minutes, 1),
+            mode=mode,
+            mode_label=mode_label,
             agency="",
             walking_distance_km=round(distance_km, 2),
-            walking_minutes=round(walk_minutes, 1),
+            walking_minutes=round(travel_minutes, 1) if not too_far_to_walk else 0.0,
             transit_available=False,
             steps_summary=steps,
             route_steps=route_steps,
@@ -889,13 +1073,22 @@ class TransitAvailabilityChecker:
 
     @staticmethod
     def _parse_time(time_str, reference_date) -> datetime:
-        """Parse GTFS time string into datetime."""
+        """Parse a GTFS time (may be >24:00:00) into a datetime. Accepts
+        either a timedelta (what asyncpg decodes a Postgres INTERVAL
+        column into) or a raw "HH:MM:SS" GTFS string — a timedelta is read
+        via total_seconds() directly, since str()'ing one >=24h renders as
+        "N day(s), H:MM:SS", not "HH:MM:SS".
+        """
         from datetime import date as date_type
 
-        parts = str(time_str).split(":")
-        hours = int(parts[0])
-        minutes = int(parts[1]) if len(parts) > 1 else 0
-        seconds = int(float(parts[2])) if len(parts) > 2 else 0
+        if isinstance(time_str, timedelta):
+            hours, remainder = divmod(int(time_str.total_seconds()), 3600)
+            minutes, seconds = divmod(remainder, 60)
+        else:
+            parts = str(time_str).split(":")
+            hours = int(parts[0])
+            minutes = int(parts[1]) if len(parts) > 1 else 0
+            seconds = int(float(parts[2])) if len(parts) > 2 else 0
 
         day_offset = 0
         if hours >= 24:

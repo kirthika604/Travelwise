@@ -9,6 +9,7 @@ import type {
   CombinationResponse,
   DiscoveryRequest,
   DiscoveryResponse,
+  PlaceResult,
   PlaceSummary,
   RoutingRequest,
   RoutingResponse,
@@ -77,6 +78,41 @@ export async function discover(req: DiscoveryRequest): Promise<ApiResult<Discove
   } catch (e) {
     return { data: mockDiscovery(req), source: "mock", error: msg(e) };
   }
+}
+
+// Every place with full detail (tags, cuisines, time needed…), loaded once
+// and kept in memory so the Discover search bar can match instantly on each
+// keystroke instead of round-tripping to a backend that may be cold-starting.
+// Discovery caps a request at 100 rows, so POIs and food are fetched
+// separately. If either half falls back to mock, use mock for both — mixing
+// live and seed ids in one list would break selection/check-ins later.
+let catalogCache: ApiResult<PlaceResult[]> | null = null;
+let catalogInflight: Promise<ApiResult<PlaceResult[]>> | null = null;
+
+export function loadCatalog(): Promise<ApiResult<PlaceResult[]>> {
+  if (catalogCache) return Promise.resolve(catalogCache);
+  if (!catalogInflight) {
+    catalogInflight = (async () => {
+      const [poi, food] = await Promise.all([
+        discover({ source: "poi", limit: 100 }),
+        discover({ source: "food", limit: 100 }),
+      ]);
+      const live = poi.source === "live" && food.source === "live";
+      const result: ApiResult<PlaceResult[]> = live
+        ? { data: [...poi.data.places, ...food.data.places], source: "live" }
+        : {
+            data: mockDiscovery({ limit: 500 }).places,
+            source: "mock",
+            error: poi.error ?? food.error,
+          };
+      // Only remember a live result — a mock one should retry next time.
+      if (live || FORCE_MOCK) catalogCache = result;
+      return result;
+    })().finally(() => {
+      catalogInflight = null;
+    });
+  }
+  return catalogInflight;
 }
 
 // Full places catalog (id/name/lat/lon), used by the Explorer Passport's

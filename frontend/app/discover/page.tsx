@@ -16,7 +16,10 @@ import AddMemorySheet from "@/components/explorer/AddMemorySheet";
 import LevelUpModal from "@/components/explorer/LevelUpModal";
 import PassportLink from "@/components/ui/PassportLink";
 import LocationPicker from "@/components/ui/LocationPicker";
-import { discover, type Source } from "@/lib/api";
+import PlaceSearchBar from "@/components/discover/PlaceSearchBar";
+import SearchResults from "@/components/discover/SearchResults";
+import { discover, loadCatalog, type Source } from "@/lib/api";
+import { searchPlaces } from "@/lib/search";
 import { useTrip, type Filters } from "@/lib/trip-store";
 import { useExplorer } from "@/lib/explorer-store";
 import { useRequireAuth } from "@/lib/use-require-auth";
@@ -58,6 +61,8 @@ function DiscoverPageInner() {
   const [findOpen, setFindOpen] = useState(false);
   const [detail, setDetail] = useState<PlaceResult | null>(null);
   const [memoryPlace, setMemoryPlace] = useState<PlaceResult | null>(null);
+  const [query, setQuery] = useState("");
+  const [catalog, setCatalog] = useState<PlaceResult[] | null>(null);
 
   const origin = location ?? CHENNAI_CENTER;
 
@@ -82,6 +87,21 @@ function DiscoverPageInner() {
       setLoading(false);
     },
     [origin.latitude, origin.longitude],
+  );
+
+  // Load the full catalog for search once the first results are on screen
+  // (not before — it shouldn't compete with them on a cold backend).
+  const ensureCatalog = useCallback(() => {
+    loadCatalog().then((r) => setCatalog(r.data));
+  }, []);
+  useEffect(() => {
+    if (!loading && !catalog) ensureCatalog();
+  }, [loading, catalog, ensureCatalog]);
+
+  const searchActive = query.trim().length >= 2;
+  const searchOutcome = useMemo(
+    () => (searchActive && catalog ? searchPlaces(query, catalog, origin) : null),
+    [searchActive, query, catalog, origin.latitude, origin.longitude],
   );
 
   // initial nearby browse
@@ -218,8 +238,31 @@ function DiscoverPageInner() {
           </div>
         </div>
 
+        {/* search */}
+        <div
+          className={`mb-6 transition-all duration-700 delay-150 ${
+            showContent ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+          }`}
+        >
+          <PlaceSearchBar value={query} onChange={setQuery} onFocus={ensureCatalog} />
+        </div>
+
         {/* content */}
-        {loading ? (
+        {searchActive ? (
+          searchOutcome ? (
+            <SearchResults
+              query={query}
+              outcome={searchOutcome}
+              isSelected={isSelected}
+              fitsTime={fitsTime}
+              onOpen={setDetail}
+              onToggle={toggleSelect}
+              onRoute={goRoute}
+            />
+          ) : (
+            <Loader label="Loading places to search…" />
+          )
+        ) : loading ? (
           <Loader label="Finding places around you…" />
         ) : places.length === 0 ? (
           <EmptyState onFind={() => setFindOpen(true)} />
@@ -264,7 +307,7 @@ function DiscoverPageInner() {
         )}
 
         {/* not satisfied? hint → combination */}
-        {!loading && places.length > 0 && showContent && (
+        {!searchActive && !loading && places.length > 0 && showContent && (
           <p className="mt-10 text-center text-sm text-slate-400 transition-opacity duration-700 delay-500">
             <Sparkles size={14} className="mb-0.5 mr-1 inline text-lagoon-300" />
             Add a few places you like to build a multi-stop day, or plan a route straight to one.

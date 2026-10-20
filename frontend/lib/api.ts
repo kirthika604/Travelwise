@@ -9,6 +9,7 @@ import type {
   CombinationResponse,
   DiscoveryRequest,
   DiscoveryResponse,
+  MapPlace,
   PlaceResult,
   PlaceSummary,
   RoutingRequest,
@@ -46,11 +47,11 @@ async function postJSON<T>(path: string, body: unknown, timeoutMs = 12000): Prom
   }
 }
 
-async function getJSON<T>(path: string, timeoutMs = 12000): Promise<T> {
+async function getJSON<T>(path: string, timeoutMs = 12000, base = API_BASE): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(`${API_BASE}${path}`, { signal: controller.signal });
+    const res = await fetch(`${base}${path}`, { signal: controller.signal });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`HTTP ${res.status}${text ? `: ${text.slice(0, 160)}` : ""}`);
@@ -77,6 +78,26 @@ export async function discover(req: DiscoveryRequest): Promise<ApiResult<Discove
     return { data: await postJSON<DiscoveryResponse>("/discovery", req, COLD_START_TIMEOUT_MS), source: "live" };
   } catch (e) {
     return { data: mockDiscovery(req), source: "mock", error: msg(e) };
+  }
+}
+
+// Looks a place up on the map by name — anything in OpenStreetMap, not just
+// our catalog — so every search can end in directions. No mock fallback:
+// invented places would be worse than an honest "couldn't search the map".
+export async function searchOnMap(
+  q: string,
+  near?: { latitude: number; longitude: number } | null,
+): Promise<{ results: MapPlace[]; error?: string }> {
+  const params = new URLSearchParams({ q });
+  if (near) {
+    params.set("lat", String(near.latitude));
+    params.set("lon", String(near.longitude));
+  }
+  try {
+    const data = await getJSON<{ results: MapPlace[]; error?: string }>(`/place-search?${params}`, 15000, "");
+    return { results: data.results ?? [], error: data.error };
+  } catch (e) {
+    return { results: [], error: msg(e) };
   }
 }
 

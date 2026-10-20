@@ -13,6 +13,8 @@ import {
   MapPin,
   Navigation,
   Leaf,
+  ExternalLink,
+  Car,
 } from "lucide-react";
 import Stepper from "@/components/ui/Stepper";
 import Loader from "@/components/ui/Loader";
@@ -25,7 +27,19 @@ import { route as fetchRoute, type Source } from "@/lib/api";
 import { routeToUnified, itineraryToUnified, type UnifiedRoute } from "@/lib/route-view";
 import { useTrip } from "@/lib/trip-store";
 import { modeMeta, WALK_MODE } from "@/lib/constants";
-import { toLocalISO, formatDurationMin, formatMoney, formatTime, co2SavedKg, formatCo2, type LngLat } from "@/lib/geo";
+import {
+  toLocalISO,
+  formatDurationMin,
+  formatMoney,
+  formatTime,
+  formatDistance,
+  co2SavedKg,
+  formatCo2,
+  haversineKm,
+  googleMapsDirectionsUrl,
+  autoEstimate,
+  type LngLat,
+} from "@/lib/geo";
 import { useRequireAuth } from "@/lib/use-require-auth";
 
 // maplibre-gl is browser-only → load the map without SSR.
@@ -122,6 +136,12 @@ export default function RoutesPage() {
   }, [ctx]);
 
   const selected = options[selectedIdx];
+  const fallbackOrigin =
+    ctx?.mode === "single" && ctx.origin && ctx.origin.latitude !== 0 && ctx.origin.longitude !== 0
+      ? ctx.origin
+      : savedLocation && savedLocation.latitude !== 0 && savedLocation.longitude !== 0
+        ? savedLocation
+        : null;
   const isItinerary = ctx?.mode === "itinerary";
 
   // map geometry
@@ -199,14 +219,23 @@ export default function RoutesPage() {
 
         {loading ? (
           <Loader label={locating ? "Getting your live location…" : "Finding the best way there…"} />
-        ) : options.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center text-sm text-slate-400">
-            No public-transit route found for this trip.
-          </div>
         ) : (
           <div className="grid gap-6 lg:grid-cols-[minmax(0,430px)_1fr]">
             {/* LEFT: options + timeline */}
             <section className="min-w-0">
+              {options.length === 0 && ctx.mode === "single" && (
+                <DirectFallback
+                  origin={fallbackOrigin}
+                  destination={ctx.destination}
+                  destinationName={ctx.destinationName}
+                />
+              )}
+              {options.length === 0 && ctx.mode !== "single" && (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center text-sm text-slate-400">
+                  No public-transit route found for this trip.
+                </div>
+              )}
+
               {/* transport combination chooser (single mode, multiple options) */}
               {!isItinerary && options.length > 1 && (
                 <div className="mb-5">
@@ -227,6 +256,18 @@ export default function RoutesPage() {
                   <TransitTimeline steps={selected.steps} />
                 </div>
               )}
+
+              {/* any single destination can also be opened in Google Maps */}
+              {options.length > 0 && ctx.mode === "single" && (
+                <a
+                  href={googleMapsDirectionsUrl(fallbackOrigin, ctx.destination)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-ghost mt-4 w-full justify-center text-sm"
+                >
+                  <ExternalLink size={15} /> Open turn-by-turn in Google Maps
+                </a>
+              )}
             </section>
 
             {/* RIGHT: map */}
@@ -234,7 +275,7 @@ export default function RoutesPage() {
               <div className="relative h-[52vh] overflow-hidden rounded-3xl border border-white/10 shadow-glow lg:h-[calc(100vh-8rem)]">
                 <RouteMap segments={segments} waypoints={waypoints} className="h-full w-full" />
                 <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-night-950/70 px-3 py-1.5 text-xs text-slate-200 backdrop-blur">
-                  <Navigation size={12} className="text-lagoon-300" /> Live route preview
+                  <Navigation size={12} className="text-lagoon-300" /> {options.length ? "Live route preview" : "Direct line to your destination"}
                 </div>
               </div>
             </section>
@@ -242,6 +283,54 @@ export default function RoutesPage() {
         )}
       </div>
     </main>
+  );
+}
+
+// Shown when no public-transit journey exists (the destination is out past the
+// bus/rail network, or the lookup failed) — so a searched place never ends at
+// "no route": a direct auto/taxi estimate plus Google Maps turn-by-turn.
+function DirectFallback({
+  origin,
+  destination,
+  destinationName,
+}: {
+  origin: { latitude: number; longitude: number } | null;
+  destination: { latitude: number; longitude: number };
+  destinationName: string;
+}) {
+  const est = origin ? autoEstimate(haversineKm(origin, destination)) : null;
+  return (
+    <div className="animate-in card p-5">
+      <p className="text-sm font-semibold text-white">No bus, metro or train route reaches {destinationName}</p>
+      <p className="mt-1 text-sm text-slate-400">
+        {origin
+          ? "Here's the direct way there instead."
+          : "We couldn't read your location, so open the directions below — Google Maps starts from wherever you are."}
+      </p>
+
+      {est && (
+        <div className="mt-4 flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-lagoon-500/15 text-lagoon-300">
+            <Car size={20} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-2xl font-bold text-white">{formatDurationMin(est.minutes)}</p>
+            <p className="text-xs text-slate-400">
+              Auto / taxi · about {formatDistance(est.roadKm)} by road · est. {formatMoney(est.fare)}
+            </p>
+          </div>
+        </div>
+      )}
+
+      <a
+        href={googleMapsDirectionsUrl(origin, destination)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="btn-primary mt-4 w-full justify-center text-sm"
+      >
+        <ExternalLink size={15} /> Open turn-by-turn in Google Maps
+      </a>
+    </div>
   );
 }
 

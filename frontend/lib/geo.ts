@@ -203,3 +203,26 @@ export function toLocalISO(d: Date): string {
     `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
   );
 }
+
+// ── Directions fallback ──────────────────────────────────────────────────────
+// Deep link into Google Maps' own turn-by-turn, so every destination — even
+// one no public transit reaches — still ends in usable directions. Without an
+// origin Google starts from the person's current location.
+export function googleMapsDirectionsUrl(origin: Coord | null, dest: Coord, mode: "transit" | "driving" = "transit"): string {
+  const p = new URLSearchParams({
+    api: "1",
+    destination: `${dest.latitude},${dest.longitude}`,
+    travelmode: mode,
+  });
+  if (origin) p.set("origin", `${origin.latitude},${origin.longitude}`);
+  return `https://www.google.com/maps/dir/?${p}`;
+}
+
+// Rough door-to-door auto/taxi estimate from straight-line distance: roads
+// wind, so scale up, then city-traffic speed and a typical metered fare.
+const ROAD_FACTOR = 1.3;
+const AUTO_KMPH = 20;
+export function autoEstimate(straightKm: number): { roadKm: number; minutes: number; fare: number } {
+  const roadKm = straightKm * ROAD_FACTOR;
+  return { roadKm, minutes: Math.max(3, Math.round((roadKm / AUTO_KMPH) * 60)), fare: Math.round((30 + 15 * roadKm) / 10) * 10 };
+}

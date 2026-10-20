@@ -285,6 +285,16 @@ export interface PlaceSummary {
   distance_km?: number | null;
 }
 
+// A place found by searching the map (any shop, college, hospital, street…),
+// as opposed to a curated PlaceResult from our own catalog.
+export interface MapPlace {
+  name: string;
+  subtitle: string;
+  kind: string | null;
+  latitude: number;
+  longitude: number;
+}
+
 export interface NearbyStop {
   stop_id: string;
   stop_name: string;

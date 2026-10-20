@@ -17,14 +17,14 @@ import LevelUpModal from "@/components/explorer/LevelUpModal";
 import PassportLink from "@/components/ui/PassportLink";
 import LocationPicker from "@/components/ui/LocationPicker";
 import PlaceSearchBar from "@/components/discover/PlaceSearchBar";
-import SearchResults from "@/components/discover/SearchResults";
-import { discover, loadCatalog, type Source } from "@/lib/api";
+import SearchResults, { type MapSearchState } from "@/components/discover/SearchResults";
+import { discover, loadCatalog, searchOnMap, type Source } from "@/lib/api";
 import { searchPlaces } from "@/lib/search";
 import { useTrip, type Filters } from "@/lib/trip-store";
 import { useExplorer } from "@/lib/explorer-store";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { CHENNAI_CENTER } from "@/lib/constants";
-import type { PlaceResult } from "@/lib/types";
+import type { MapPlace, PlaceResult } from "@/lib/types";
 
 type Mode = "browse" | "ranked";
 
@@ -63,6 +63,7 @@ function DiscoverPageInner() {
   const [memoryPlace, setMemoryPlace] = useState<PlaceResult | null>(null);
   const [query, setQuery] = useState("");
   const [catalog, setCatalog] = useState<PlaceResult[] | null>(null);
+  const [mapSearch, setMapSearch] = useState<(MapSearchState & { query: string }) | null>(null);
 
   const origin = location ?? CHENNAI_CENTER;
 
@@ -104,6 +105,21 @@ function DiscoverPageInner() {
     [searchActive, query, catalog, origin.latitude, origin.longitude],
   );
 
+  // Map results only count for the exact text that was searched — once the
+  // box changes they're stale, and typing falls back to instant local matches.
+  const mapForQuery = mapSearch && mapSearch.query === query.trim() ? mapSearch : null;
+
+  const submitSearch = async () => {
+    const q = query.trim();
+    if (q.length < 2) return;
+    ensureCatalog();
+    setMapSearch({ query: q, status: "loading", results: [], failed: false });
+    const res = await searchOnMap(q, location);
+    setMapSearch((cur) =>
+      cur && cur.query === q ? { query: q, status: "done", results: res.results, failed: !!res.error } : cur,
+    );
+  };
+
   // initial nearby browse
   useEffect(() => {
     runDiscovery(filters, "browse");
@@ -134,7 +150,7 @@ function DiscoverPageInner() {
     runDiscovery({ ...filters, interests: [], budget: null, preferred_time: null }, "browse");
   };
 
-  const goRoute = (p: PlaceResult) => {
+  const goRoute = (p: Pick<PlaceResult, "name" | "latitude" | "longitude">) => {
     // If origin is just the fallback (Chennai centre), try to get real location first
     const isFallback = !location;
     const doRoute = (realOrigin: { latitude: number; longitude: number }) => {
@@ -244,20 +260,29 @@ function DiscoverPageInner() {
             showContent ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
           }`}
         >
-          <PlaceSearchBar value={query} onChange={setQuery} onFocus={ensureCatalog} />
+          <PlaceSearchBar
+            value={query}
+            onChange={setQuery}
+            onSubmit={submitSearch}
+            searching={mapForQuery?.status === "loading"}
+            onFocus={ensureCatalog}
+          />
         </div>
 
         {/* content */}
         {searchActive ? (
-          searchOutcome ? (
+          searchOutcome || mapForQuery ? (
             <SearchResults
               query={query}
               outcome={searchOutcome}
+              map={mapForQuery}
+              origin={origin}
               isSelected={isSelected}
               fitsTime={fitsTime}
               onOpen={setDetail}
               onToggle={toggleSelect}
               onRoute={goRoute}
+              onDirections={(m: MapPlace) => goRoute(m)}
             />
           ) : (
             <Loader label="Loading places to search…" />
